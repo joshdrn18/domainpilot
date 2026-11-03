@@ -2,7 +2,7 @@ import { json, getUser, randomId } from '../_lib/auth.js';
 export async function onRequestGet({ request, env }) {
   try {
     const user=await getUser(request,env); if(!user) return json({error:'Unauthorized'},401);
-    const result=await env.DB.prepare('SELECT id,domain,registrar,expiry_date,status,nameservers,notes,created_at,updated_at FROM dp_domains WHERE (?='admin' OR owner_id=?) ORDER BY COALESCE(expiry_date,\'9999-12-31\'),domain').bind(user.role,user.id).all();
+    const result=await env.DB.prepare("SELECT id,domain,registrar,expiry_date,status,nameservers,notes,created_at,updated_at FROM dp_domains WHERE (?='admin' OR owner_id=?) ORDER BY COALESCE(expiry_date,'9999-12-31'),domain").bind(user.role,user.id).all();
     return json({domains:result.results||[]});
   } catch { return json({error:'Could not load domains'},500); }
 }
