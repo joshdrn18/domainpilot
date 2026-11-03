@@ -1,4 +1,4 @@
-import { json, getUser, randomId } from '../../_lib/auth.js';
+import { json, getUser, randomId } from '../_lib/auth.js';
 export async function onRequestGet({ request, env }) {
   try {
     if(!await getUser(request,env)) return json({error:'Unauthorized'},401);
