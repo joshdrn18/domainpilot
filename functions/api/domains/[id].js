@@ -7,7 +7,7 @@ export async function onRequestPatch({ request, env, params }) {
     if(!current) return json({error:'Domain not found'},404);
     const registrar=String(body.registrar||'Unknown').trim().slice(0,80);
     const expiry=body.expiry_date ? String(body.expiry_date) : null;
-    if(expiry && !/^\\d{4}-\\d{2}-\\d{2}$/.test(expiry)) return json({error:'Invalid expiration date'},400);
+    if(expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json({error:'Invalid expiration date'},400);
     await env.DB.prepare("UPDATE dp_domains SET registrar=?,expiry_date=?,notes=?,updated_at=datetime('now') WHERE id=?").bind(registrar,expiry,String(body.notes||'').slice(0,1000),id).run();
     await env.DB.prepare('INSERT INTO dp_activity (domain_id,action,details,actor) VALUES (?,?,?,?)').bind(id,'domain.updated','Domain details updated',user.email).run();
     return json({ok:true});
