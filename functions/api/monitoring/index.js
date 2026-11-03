@@ -36,7 +36,7 @@ export async function onRequestPost({ request, env }) {
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
       try {
-        if (/\\.(localhost|local|internal|test|invalid|example)$/i.test(domain.domain)) throw new Error('Reserved hostname cannot be checked');
+        if (/\.(localhost|local|internal|test|invalid|example)$/i.test(domain.domain)) throw new Error('Reserved hostname cannot be checked');
         const response = await fetch('https://' + domain.domain, {
           method: 'HEAD',
           redirect: 'manual',
