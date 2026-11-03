@@ -17,6 +17,6 @@ export async function hashPassword(password, salt) {
 export async function getUser(request, env) {
   const token = request.headers.get('Cookie')?.match(/(?:^|; )dp_session=([a-f0-9]{64})/)?.[1];
   if (!token) return null;
-  const row = await env.DB.prepare("SELECT u.id,u.email,u.role FROM dp_sessions s JOIN dp_users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at > datetime('now')").bind(token).first();
+  const row = await env.DB.prepare("SELECT u.id,u.email,u.role FROM dp_sessions s JOIN dp_users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at > datetime('now') AND u.status='active'").bind(token).first();
   return row || null;
 }
