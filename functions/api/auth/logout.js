@@ -1,4 +1,4 @@
-import { json, cookie, getUser } from '../../../_lib/auth.js';
+import { json, cookie, getUser } from '../../_lib/auth.js';
 export async function onRequestPost({ request, env }) {
   try {
     const token=request.headers.get('Cookie')?.match(/(?:^|; )dp_session=([a-f0-9]{64})/)?.[1];
