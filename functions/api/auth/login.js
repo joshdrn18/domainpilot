@@ -28,12 +28,12 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'Too many sign-in attempts. Try again in a few minutes.' }, 429, { 'Retry-After': String(attempt.blocked_until - now) });
     }
 
-    const user = await env.DB.prepare('SELECT id,email,password_hash,role FROM dp_users WHERE email=?').bind(email).first();
+    const user = await env.DB.prepare('SELECT id,email,password_hash,role,status FROM dp_users WHERE email=?').bind(email).first();
     let valid = false;
     if (user) {
       const [salt, expected] = user.password_hash.split(':');
       const actual = await hashPassword(password, salt);
-      valid = equalHex(actual, expected);
+      valid = equalHex(actual, expected) && user.status === 'active';
     }
 
     if (!valid) {
