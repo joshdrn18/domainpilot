@@ -2,7 +2,8 @@ import { json, getUser } from '../../_lib/auth.js';
 
 export async function onRequestGet({ request, env }) {
   try {
-    if (!await getUser(request, env)) return json({ error: 'Unauthorized' }, 401);
+    const user = await getUser(request, env); if (!user) return json({ error: 'Unauthorized' }, 401);
+    if(user.role!=='admin'){const plan=await env.DB.prepare('SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1').bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
     const result = await env.DB.prepare(`
       SELECT d.id,d.domain,
         (SELECT c.status FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS status,
@@ -10,7 +11,7 @@ export async function onRequestGet({ request, env }) {
         (SELECT c.checked_at FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS checked_at,
         (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS details
       FROM dp_domains d WHERE d.owner_id=? ORDER BY d.domain
-    `).bind((await getUser(request,env)).id).all();
+    `).bind(user.id).all();
     return json({ checks: result.results || [] });
   } catch {
     return json({ error: 'Could not load monitoring data' }, 500);
@@ -21,6 +22,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const user = await getUser(request, env);
     if (!user) return json({ error: 'Unauthorized' }, 401);
+    if(user.role!=='admin'){const plan=await env.DB.prepare('SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1').bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
     const body = await request.json().catch(() => ({}));
     let domains;
     if (body.domainId) {
