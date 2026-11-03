@@ -1,4 +1,4 @@
-import { json, cookie, randomId, hashPassword } from '../../../_lib/auth.js';
+import { json, cookie, randomId, hashPassword } from '../../_lib/auth.js';
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json(), email = String(body.email || '').trim().toLowerCase(), password = String(body.password || '');
