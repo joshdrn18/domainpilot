@@ -16,3 +16,5 @@
 .signout-button{border:0;background:transparent;color:#969a90;padding:5px}
 .signout-button:hover{color:var(--accent)}
 @media(max-width:600px){.auth-card{padding:22px}.auth-card h1{font-size:25px}}
+
+.row-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px}.row-actions .row-more{opacity:1;border:1px solid transparent;border-radius:5px}.row-actions .row-more:hover{background:#262928;border-color:#393d39;color:var(--accent)}@media(max-width:600px){.row-actions{grid-column:2;grid-row:2;align-self:center}.row-actions .row-more{opacity:1;padding:6px}}
