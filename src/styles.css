@@ -34,3 +34,5 @@
 
 .admin-user-actions{display:flex;align-items:center;gap:5px}.admin-user-actions .row-more{border:1px solid #353a35;border-radius:5px;padding:6px}.session-head,.session-row{grid-template-columns:1.4fr 1fr 1fr .7fr}
 @media(max-width:600px){.session-head,.session-row{min-width:640px}.admin-user-actions{gap:4px}}
+
+.danger-action{color:#d99b91!important;border-color:#4a302d!important}.danger-action:hover{background:#352321!important;color:#f0b0a4!important}
