@@ -9,6 +9,7 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   try {
     const user=await getUser(request,env); if(!user) return json({error:'Unauthorized'},401);
+    if(user.role!=='admin'){const plan=await env.DB.prepare("SELECT p.domain_limit FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1").bind(user.id).first();const count=await env.DB.prepare('SELECT COUNT(*) AS total FROM dp_domains WHERE owner_id=?').bind(user.id).first();if((plan?.domain_limit??5)>=0&&(count?.total??0)>=(plan?.domain_limit??5))return json({error:'Your plan domain limit has been reached'},403);}
     const body=await request.json();
     const domain=String(body.domain||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/$/,'');
     if(domain.length>253 || !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) return json({error:'Enter a valid domain name'},400);
