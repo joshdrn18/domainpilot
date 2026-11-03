@@ -1,0 +1,10 @@
+{
+  "name": "DomainPilot",
+  "short_name": "DomainPilot",
+  "description": "A focused workspace for managing your domain portfolio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101112",
+  "theme_color": "#101112",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
