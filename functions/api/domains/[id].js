@@ -1,4 +1,4 @@
-import { json, getUser } from '../../../_lib/auth.js';
+import { json, getUser } from '../../_lib/auth.js';
 export async function onRequestPatch({ request, env, params }) {
   try {
     const user=await getUser(request,env); if(!user) return json({error:'Unauthorized'},401);
