@@ -28,7 +28,7 @@ export async function onRequestPost({ request, env }) {
       if (!row) return json({ error: 'Domain not found' }, 404);
       domains = [row];
     } else {
-      const result = await env.DB.prepare('SELECT id,domain FROM dp_domains ORDER BY domain LIMIT 50').all();
+      const result = await env.DB.prepare('SELECT id,domain FROM dp_domains ORDER BY domain LIMIT 20').all();
       domains = result.results || [];
     }
     if (!domains.length) return json({ error: 'Add a domain before running checks' }, 400);
@@ -36,6 +36,7 @@ export async function onRequestPost({ request, env }) {
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
       try {
+        if (/\\.(localhost|local|internal|test|invalid|example)$/i.test(domain.domain)) throw new Error('Reserved hostname cannot be checked');
         const response = await fetch('https://' + domain.domain, {
           method: 'HEAD',
           redirect: 'manual',
