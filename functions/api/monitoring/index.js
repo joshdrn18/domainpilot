@@ -10,8 +10,8 @@ export async function onRequestGet({ request, env }) {
         (SELECT c.response_ms FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS response_ms,
         (SELECT c.checked_at FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS checked_at,
         (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS details
-      FROM dp_domains d WHERE d.owner_id=? ORDER BY d.domain
-    `).bind(user.id).all();
+      FROM dp_domains d WHERE (?='admin' OR d.owner_id=?) ORDER BY d.domain
+    `).bind(user.role,user.id).all();
     return json({ checks: result.results || [] });
   } catch {
     return json({ error: 'Could not load monitoring data' }, 500);
@@ -26,11 +26,11 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => ({}));
     let domains;
     if (body.domainId) {
-      const row = await env.DB.prepare('SELECT id,domain FROM dp_domains WHERE id=? AND owner_id=?').bind(String(body.domainId),user.id).first();
+      const row = await env.DB.prepare('SELECT id,domain FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)').bind(String(body.domainId),user.role,user.id).first();
       if (!row) return json({ error: 'Domain not found' }, 404);
       domains = [row];
     } else {
-      const result = await env.DB.prepare('SELECT id,domain FROM dp_domains WHERE owner_id=? ORDER BY domain LIMIT 20') .bind(user.id).all();
+      const result = await env.DB.prepare('SELECT id,domain FROM dp_domains WHERE (?='admin' OR owner_id=?) ORDER BY domain LIMIT 20') .bind(user.role,user.id).all();
       domains = result.results || [];
     }
     if (!domains.length) return json({ error: 'Add a domain before running checks' }, 400);
