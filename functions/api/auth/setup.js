@@ -1,4 +1,4 @@
-import { json, cookie, randomId, hashPassword } from '../../../_lib/auth.js';
+import { json, cookie, randomId, hashPassword } from '../../_lib/auth.js';
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB || !env.ADMIN_SETUP_KEY) return json({ error: 'Setup is not configured' }, 503);
