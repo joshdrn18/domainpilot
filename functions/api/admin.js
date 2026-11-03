@@ -58,6 +58,22 @@ export async function onRequestPost({ request, env }) {
       await env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)').bind('admin.user.'+status,target.email,access.user.email).run();
       return json({ ok: true });
     }
+    if (action === 'delete_user') {
+      const id = String(body.user_id || '');
+      const target = await env.DB.prepare('SELECT id,email,role FROM dp_users WHERE id=?').bind(id).first();
+      if (!target) return json({ error: 'User not found' }, 404);
+      if (target.role === 'admin' || target.id === access.user.id) return json({ error: 'Administrator accounts cannot be deleted here' }, 400);
+      const owned = await env.DB.prepare('SELECT id FROM dp_domains WHERE owner_id=?').bind(id).all();
+      const statements = [];
+      for (const domain of owned.results || []) statements.push(env.DB.prepare('DELETE FROM dp_checks WHERE domain_id=?').bind(domain.id));
+      statements.push(env.DB.prepare('DELETE FROM dp_domains WHERE owner_id=?').bind(id));
+      statements.push(env.DB.prepare('DELETE FROM dp_sessions WHERE user_id=?').bind(id));
+      statements.push(env.DB.prepare('DELETE FROM dp_user_plans WHERE user_id=?').bind(id));
+      statements.push(env.DB.prepare('DELETE FROM dp_users WHERE id=?').bind(id));
+      statements.push(env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)').bind('admin.user.deleted',target.email,access.user.email));
+      await env.DB.batch(statements);
+      return json({ ok: true });
+    }
     if (action === 'set_user_plan') {
       const id = String(body.user_id || ''), plan = String(body.plan || '');
       const target = await env.DB.prepare('SELECT id,email,role FROM dp_users WHERE id=?').bind(id).first();
