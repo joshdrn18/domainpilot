@@ -11,16 +11,17 @@ export async function onRequestGet({ request, env }) {
   try {
     const access = await admin(request, env);
     if (access.error) return access.error;
-    const [users, domains, plans, activity, checks, settings] = await Promise.all([
+    const [users, domains, plans, activity, checks, settings, sessions] = await Promise.all([
       env.DB.prepare("SELECT u.id,u.email,u.role,u.status,u.created_at,u.last_login_at,COALESCE(up.plan_id,CASE WHEN u.role='admin' THEN 'unlimited' ELSE 'free' END) AS plan_id,up.expires_at,(SELECT COUNT(*) FROM dp_domains d WHERE d.owner_id=u.id) AS domain_count FROM dp_users u LEFT JOIN dp_user_plans up ON up.user_id=u.id ORDER BY u.created_at DESC").all(),
       env.DB.prepare("SELECT d.id,d.domain,d.registrar,d.expiry_date,d.status,d.created_at,u.email AS owner_email FROM dp_domains d LEFT JOIN dp_users u ON u.id=d.owner_id ORDER BY d.created_at DESC LIMIT 500").all(),
       env.DB.prepare("SELECT id,name,domain_limit,monitoring_enabled,custom_alerts,price_monthly,active FROM dp_plans ORDER BY price_monthly,id").all(),
       env.DB.prepare("SELECT id,action,details,actor,created_at FROM dp_activity ORDER BY created_at DESC LIMIT 50").all(),
       env.DB.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN status='up' THEN 1 ELSE 0 END) AS up,SUM(CASE WHEN status='down' THEN 1 ELSE 0 END) AS down,MAX(checked_at) AS last_check FROM dp_checks").first(),
-      env.DB.prepare("SELECT key,value,updated_at FROM dp_settings ORDER BY key").all()
+      env.DB.prepare("SELECT key,value,updated_at FROM dp_settings ORDER BY key").all(),
+      env.DB.prepare("SELECT s.user_id,u.email,s.created_at,s.expires_at FROM dp_sessions s JOIN dp_users u ON u.id=s.user_id WHERE s.expires_at>datetime('now') ORDER BY s.created_at DESC LIMIT 100").all()
     ]);
     const stats = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM dp_users) AS users,(SELECT COUNT(*) FROM dp_domains) AS domains,(SELECT COUNT(*) FROM dp_activity) AS events,(SELECT COUNT(*) FROM dp_sessions WHERE expires_at>datetime('now')) AS active_sessions").first();
-    return json({ stats, users: users.results || [], domains: domains.results || [], plans: plans.results || [], activity: activity.results || [], monitoring: checks || {}, settings: settings.results || [] });
+    return json({ stats, users: users.results || [], domains: domains.results || [], plans: plans.results || [], activity: activity.results || [], monitoring: checks || {}, settings: settings.results || [], sessions: sessions.results || [] });
   } catch (error) {
     return json({ error: 'Could not load administrator data' }, 500);
   }
