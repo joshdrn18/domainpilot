@@ -112,7 +112,7 @@ async function checkDomain(db, domain, messages) {
     .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,'crt.sh',certificate.details).run();
 
   if (certificate.not_after && certificate.days_remaining !== null) {
-    const threshold = ALERT_THRESHOLDS.find(value => certificate.days_remaining <= value);
+    const threshold = ALERT_THRESHOLDS.slice().sort((a,b) => a-b).find(value => certificate.days_remaining <= value);
     const isNewCertificate = previousCertificate?.not_after !== certificate.not_after;
     const crossed = previousCertificate?.days_remaining == null
       ? certificate.days_remaining <= 30
@@ -130,7 +130,7 @@ async function checkDomain(db, domain, messages) {
     const expiryMs = Date.parse(domain.expiry_date + 'T00:00:00Z');
     if (!Number.isNaN(expiryMs)) {
       const days = Math.ceil((expiryMs - Date.now()) / 86400000);
-      const threshold = ALERT_THRESHOLDS.find(value => days <= value);
+      const threshold = ALERT_THRESHOLDS.slice().sort((a,b) => a-b).find(value => days <= value);
       if (threshold !== undefined) {
         await queueAlert(db, domain.id, domain.owner_id,
           'domain-expiry:' + domain.id + ':' + domain.expiry_date + ':' + threshold,
