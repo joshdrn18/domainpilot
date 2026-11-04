@@ -106,19 +106,23 @@ async function checkDomain(db, domain, messages) {
       '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + details, messages);
   }
 
+  const previousCertificate = await db.prepare('SELECT days_remaining,not_after FROM dp_ssl_checks WHERE domain_id=? ORDER BY checked_at DESC,id DESC LIMIT 1').bind(domain.id).first();
   const certificate = await inspectCertificate(domain.domain);
   await db.prepare('INSERT INTO dp_ssl_checks (domain_id,status,issuer,not_after,days_remaining,source,details) VALUES (?,?,?,?,?,?,?)')
     .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,'crt.sh',certificate.details).run();
 
   if (certificate.not_after && certificate.days_remaining !== null) {
-    for (const threshold of ALERT_THRESHOLDS) {
-      if (certificate.days_remaining === threshold) {
-        await queueAlert(db, domain.id, domain.owner_id,
-          'ssl:' + domain.id + ':' + certificate.not_after + ':' + threshold,
-          'ssl_expiry',
-          '🔐 DomainPilot SSL notice: ' + domain.domain + ' has a certificate transparency record expiring in ' + threshold + ' day(s) (' + certificate.not_after.slice(0,10) + '). Verify the live certificate with your hosting provider.',
-          messages);
-      }
+    const threshold = ALERT_THRESHOLDS.find(value => certificate.days_remaining <= value);
+    const isNewCertificate = previousCertificate?.not_after !== certificate.not_after;
+    const crossed = previousCertificate?.days_remaining == null
+      ? certificate.days_remaining <= 30
+      : previousCertificate.days_remaining > (threshold ?? -1);
+    if (threshold !== undefined && (isNewCertificate || crossed)) {
+      await queueAlert(db, domain.id, domain.owner_id,
+        'ssl:' + domain.id + ':' + certificate.not_after + ':' + threshold,
+        'ssl_expiry',
+        '🔐 DomainPilot SSL notice: ' + domain.domain + ' has a certificate transparency record expiring in ' + certificate.days_remaining + ' day(s) (' + certificate.not_after.slice(0,10) + '). Verify the live certificate with your hosting provider.',
+        messages);
     }
   }
 
@@ -126,9 +130,10 @@ async function checkDomain(db, domain, messages) {
     const expiryMs = Date.parse(domain.expiry_date + 'T00:00:00Z');
     if (!Number.isNaN(expiryMs)) {
       const days = Math.ceil((expiryMs - Date.now()) / 86400000);
-      if (ALERT_THRESHOLDS.includes(days)) {
+      const threshold = ALERT_THRESHOLDS.find(value => days <= value);
+      if (threshold !== undefined) {
         await queueAlert(db, domain.id, domain.owner_id,
-          'domain-expiry:' + domain.id + ':' + domain.expiry_date + ':' + days,
+          'domain-expiry:' + domain.id + ':' + domain.expiry_date + ':' + threshold,
           'domain_expiry',
           '📅 DomainPilot renewal reminder: ' + domain.domain + ' expires in ' + days + ' day(s) (' + domain.expiry_date + ').',
           messages);
