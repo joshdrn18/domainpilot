@@ -36,3 +36,11 @@
 @media(max-width:600px){.session-head,.session-row{min-width:640px}.admin-user-actions{gap:4px}}
 
 .danger-action{color:#d99b91!important;border-color:#4a302d!important}.danger-action:hover{background:#352321!important;color:#f0b0a4!important}
+
+/* Notification center */
+.notification-bell{position:relative}
+.notification-bell>span{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:10px;background:#e14b62;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;border:2px solid var(--panel,#fff)}
+.notification-heading{display:flex;align-items:center;gap:10px}
+.notification-unread{font-size:9px;font-weight:800;letter-spacing:.08em;color:#2767d8;background:#eaf1ff;border-radius:5px;padding:3px 6px}
+.notification-row{gap:8px}
+.notification-row>button{align-self:flex-start}
