@@ -70,8 +70,8 @@ export async function onRequestPost({ request, env }) {
 
     if (action === 'reset_user_password') {
       const id = String(body.user_id || '');
-      const password = String(body.password || '');
-      if (password.length < 12 || password.length > 128) return json({ error: 'Password must contain 12–128 characters' }, 400);
+      const password = String(body.new_password || '');
+      if (password.length < 12 || password.length > 128) return json({ error: 'New sign-in secret must contain 12–128 characters' }, 400);
       const target = await env.DB.prepare('SELECT id,email,role FROM dp_users WHERE id=?').bind(id).first();
       if (!target) return json({ error: 'User not found' }, 404);
       if (target.role === 'admin' && id !== access.user.id) return json({ error: 'Other administrator passwords cannot be reset here' }, 400);
