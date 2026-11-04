@@ -107,10 +107,13 @@ export async function onRequestPost({ request, env }) {
       if (target.role === 'admin' || target.id === access.user.id) return json({ error: 'Administrator accounts cannot be deleted here' }, 400);
       await env.DB.batch([
         env.DB.prepare('DELETE FROM dp_checks WHERE domain_id IN (SELECT id FROM dp_domains WHERE owner_id=?)').bind(id),
+        env.DB.prepare('DELETE FROM dp_ssl_checks WHERE domain_id IN (SELECT id FROM dp_domains WHERE owner_id=?)').bind(id),
         env.DB.prepare('DELETE FROM dp_activity WHERE domain_id IN (SELECT id FROM dp_domains WHERE owner_id=?)').bind(id),
         env.DB.prepare('DELETE FROM dp_domains WHERE owner_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_sessions WHERE user_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_user_plans WHERE user_id=?').bind(id),
+        env.DB.prepare('DELETE FROM dp_user_alert_settings WHERE user_id=?').bind(id),
+        env.DB.prepare('DELETE FROM dp_alert_events WHERE owner_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_users WHERE id=?').bind(id)
       ]);
       await audit(env,'admin.user.deleted',target.email,actor);
