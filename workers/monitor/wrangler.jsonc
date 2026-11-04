@@ -1,0 +1,19 @@
+{
+  "name": "domainpilot-monitor",
+  "main": "index.js",
+  "compatibility_date": "2026-11-04",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "domain-expiry-db",
+      "database_id": "92bcfd6e-9133-4ba9-bfa9-c4e1601c1ddd"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 * * * *"]
+  }
+}
