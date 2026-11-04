@@ -12,7 +12,7 @@ export async function onRequestGet({ env }) {
     return Response.json({
       ok: missing.length === 0,
       service: 'DomainPilot API',
-      version: '0.4.0',
+      version: '0.5.0',
       database: missing.length === 0 ? 'connected' : 'schema_incomplete',
       tables: required.length - missing.length,
       missing
