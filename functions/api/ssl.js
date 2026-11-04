@@ -33,7 +33,7 @@ export async function onRequestPost({ request, env }) {
     if (!user) return json({ error: 'Unauthorized' }, 401);
     if (!await canMonitor(user, env)) return json({ error: 'SSL monitoring is not included in your current plan' }, 403);
     const body = await request.json().catch(() => ({}));
-    const limit = Math.min(5, Math.max(1, Number(body.limit) || 5));
+    const limit = Math.min(5, Math.max(1, Math.trunc(Number(body.limit) || 5)));
     const params = [user.role,user.id];
     let where = "(?='admin' OR d.owner_id=?)";
     if (body.domainId) {
