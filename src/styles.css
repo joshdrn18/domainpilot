@@ -44,3 +44,5 @@
 .notification-unread{font-size:9px;font-weight:800;letter-spacing:.08em;color:#2767d8;background:#eaf1ff;border-radius:5px;padding:3px 6px}
 .notification-row{gap:8px}
 .notification-row>button{align-self:flex-start}
+
+.csv-actions{display:flex;align-items:center;gap:7px}.csv-actions a{text-decoration:none;white-space:nowrap}.csv-actions button{white-space:nowrap}@media(max-width:600px){.csv-actions{gap:5px}.csv-actions .secondary-button{padding:8px 9px;font-size:9px}}
