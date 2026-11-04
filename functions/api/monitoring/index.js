@@ -22,7 +22,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const user = await getUser(request, env);
     if (!user) return json({ error: 'Unauthorized' }, 401);
-    if(user.role!=='admin'){const plan=await env.DB.prepare('SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1').bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
+    if(user.role!=='admin'){const plan=await env.DB.prepare("SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
     const body = await request.json().catch(() => ({}));
     let domains;
     if (body.domainId) {
