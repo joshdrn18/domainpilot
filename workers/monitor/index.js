@@ -47,80 +47,70 @@ async function inspectCertificate(domain) {
   }
 }
 
-async function sendTelegram(env, chatId, text) {
-  if (!env.TELEGRAM_BOT_TOKEN || !chatId || !text) return false;
-  try {
-    const response = await fetch('https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/sendMessage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 3900), disable_web_page_preview: true }),
-      signal: AbortSignal.timeout(10000)
-    });
-    const result = await response.json();
-    return response.ok && result.ok === true;
-  } catch {
-    return false;
-  }
-}
-
 async function queueAlert(db, domainId, ownerId, alertKey, alertType, message, messages) {
   const plan = await db.prepare("SELECT p.custom_alerts FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(ownerId).first();
   if (!plan?.custom_alerts) return;
   const result = await db.prepare(
     "INSERT OR IGNORE INTO dp_alert_events (domain_id,owner_id,alert_key,alert_type,message,delivery_status) VALUES (?,?,?,?,?,'pending')"
   ).bind(domainId, ownerId, alertKey, alertType, message).run();
-  if (result.meta?.changes) messages.push(message);
+  if (result.meta?.changes) {
+    const title = alertType === 'https_down' ? 'Domain is unreachable'
+      : alertType === 'https_recovered' ? 'Domain recovered'
+      : alertType === 'ssl_expiry' ? 'SSL certificate notice'
+      : 'Domain renewal reminder';
+    await db.prepare(
+      "INSERT OR IGNORE INTO dp_notifications (owner_id,domain_id,alert_key,alert_type,title,message,email_status) VALUES (?,?,?,?,?,?, 'pending')"
+    ).bind(ownerId, domainId, alertKey, alertType, title, message).run();
+    messages.push(message);
+  }
 }
 
-async function deliverPendingAlerts(db, env) {
+async function deliverPendingEmails(db, env) {
+  if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID || !env.EMAIL_FROM) {
+    return { sent: 0, failed: 0, configured: false };
+  }
   const result = await db.prepare(`
-    SELECT e.id,e.owner_id,e.message,a.telegram_chat_id,a.enabled,p.custom_alerts,p.active,up.expires_at
-    FROM dp_alert_events e
-    LEFT JOIN dp_user_alert_settings a ON a.user_id=e.owner_id
-    LEFT JOIN dp_user_plans up ON up.user_id=e.owner_id
-    LEFT JOIN dp_plans p ON p.id=up.plan_id
-    WHERE e.delivery_status IN ('pending','failed')
-    ORDER BY e.created_at
-    LIMIT 50
+    SELECT n.id,n.title,n.message,u.email,COALESCE(p.email_enabled,1) AS email_enabled
+    FROM dp_notifications n
+    JOIN dp_users u ON u.id=n.owner_id
+    LEFT JOIN dp_user_notification_settings p ON p.user_id=n.owner_id
+    WHERE n.email_status IN ('pending','failed')
+    ORDER BY n.created_at
+    LIMIT 20
   `).all();
-  const groups = new Map();
-  for (const event of result.results || []) {
-    const expired = event.expires_at && event.expires_at < new Date().toISOString().slice(0,10);
-    if (!event.custom_alerts || !event.active || expired || event.enabled === 0) {
-      await db.prepare("UPDATE dp_alert_events SET delivery_status='disabled' WHERE id=?").bind(event.id).run();
+  let sent = 0, failed = 0;
+  for (const item of result.results || []) {
+    if (!item.email_enabled) {
+      await db.prepare("UPDATE dp_notifications SET email_status='disabled' WHERE id=?").bind(item.id).run();
       continue;
     }
-    if (!event.telegram_chat_id) continue;
-    const chatId = String(event.telegram_chat_id);
-    if (!groups.has(chatId)) groups.set(chatId, []);
-    groups.get(chatId).push(event);
-  }
-
-  let sent = 0, failed = 0, groupsSent = 0;
-  for (const [chatId, events] of groups) {
-    if (groupsSent >= 15) break;
-    groupsSent++;
-    const batch = [];
-    let text = 'DomainPilot alerts\\n\\n';
-    for (const event of events) {
-      const next = text + event.message + '\\n\\n';
-      if (next.length > 3700 && batch.length) break;
-      batch.push(event);
-      text = next;
-      if (batch.length >= 12) break;
-    }
-    const ok = await sendTelegram(env, chatId, text);
-    const ids = batch.map(event => event.id);
-    const placeholders = ids.map(() => '?').join(',');
-    if (ok) {
-      await db.prepare("UPDATE dp_alert_events SET delivery_status='sent',sent_at=datetime('now') WHERE id IN (" + placeholders + ")").bind(...ids).run();
-      sent += ids.length;
-    } else {
-      await db.prepare("UPDATE dp_alert_events SET delivery_status='failed' WHERE id IN (" + placeholders + ")").bind(...ids).run();
-      failed += ids.length;
+    try {
+      const response = await fetch('https://api.cloudflare.com/client/v4/accounts/' + env.CF_ACCOUNT_ID + '/email/sending/send', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.CF_API_TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.EMAIL_FROM,
+          to: [item.email],
+          subject: '[DomainPilot] ' + item.title,
+          text: item.message + '\\n\\nManage your domains: https://domainpilot.pages.dev'
+        }),
+        signal: AbortSignal.timeout(12000)
+      });
+      const payload = await response.json().catch(() => ({}));
+      const delivered = payload?.result?.delivered || [];
+      if (response.ok && payload.success === true && delivered.includes(item.email)) {
+        await db.prepare("UPDATE dp_notifications SET email_status='sent',email_sent_at=datetime('now') WHERE id=?").bind(item.id).run();
+        sent++;
+      } else {
+        await db.prepare("UPDATE dp_notifications SET email_status='failed' WHERE id=?").bind(item.id).run();
+        failed++;
+      }
+    } catch {
+      await db.prepare("UPDATE dp_notifications SET email_status='failed' WHERE id=?").bind(item.id).run();
+      failed++;
     }
   }
-  return { sent, failed };
+  return { sent, failed, configured: true };
 }
 
 async function checkDomain(db, domain, messages) {
@@ -240,10 +230,10 @@ async function runScheduled(env) {
       await db.prepare("INSERT INTO dp_settings (key,value,updated_at) VALUES ('monitor_cursor',?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')").bind(lastId).run();
     }
 
-    const delivery = env.TELEGRAM_BOT_TOKEN ? await deliverPendingAlerts(db, env) : { sent: 0, failed: 0 };
+    const delivery = await deliverPendingEmails(db, env);
 
     await db.prepare("UPDATE dp_monitor_runs SET checked_count=?,failed_count=?,details=?,finished_at=datetime('now') WHERE id=?")
-      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; alerts queued ' + messages.length + '; delivered ' + delivery.sent : 'No active domains; delivered ' + delivery.sent,runId).run();
+      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; alerts queued ' + messages.length + '; emails sent ' + delivery.sent : 'No active domains; emails sent ' + delivery.sent,runId).run();
     return { checked, failed, alerts_queued: messages.length, alerts_sent: delivery.sent, alerts_failed: delivery.failed };
   } catch (error) {
     await db.prepare("UPDATE dp_monitor_runs SET details=?,finished_at=datetime('now') WHERE id=?")
