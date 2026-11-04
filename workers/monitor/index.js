@@ -98,8 +98,15 @@ async function deliverPendingAlerts(db, env) {
 
   let sent = 0, failed = 0;
   for (const [chatId, events] of groups) {
-    const batch = events.slice(0, 12);
-    const text = 'DomainPilot alerts\\n\\n' + batch.map(event => event.message).join('\\n\\n');
+    const batch = [];
+    let text = 'DomainPilot alerts\\n\\n';
+    for (const event of events) {
+      const next = text + event.message + '\\n\\n';
+      if (next.length > 3700 && batch.length) break;
+      batch.push(event);
+      text = next;
+      if (batch.length >= 12) break;
+    }
     const ok = await sendTelegram(env, chatId, text);
     const ids = batch.map(event => event.id);
     const placeholders = ids.map(() => '?').join(',');
