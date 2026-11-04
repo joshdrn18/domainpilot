@@ -24,7 +24,7 @@ async function inspectCertificate(domain) {
     return hostname.endsWith('.' + suffix) &&
       hostname.split('.').length === suffix.split('.').length + 1;
   };
-  const resultFrom = (record, issuer) => {
+  const resultFrom = (record, issuer, source) => {
     const notAfter = new Date(record.not_after).toISOString();
     const days = Math.ceil((Date.parse(notAfter) - Date.now()) / 86400000);
     return {
@@ -32,6 +32,7 @@ async function inspectCertificate(domain) {
       issuer: String(issuer || '').slice(0, 240) || null,
       not_after: notAfter,
       days_remaining: days,
+      source,
       details: 'Latest matching certificate transparency record; not a live TLS handshake'
     };
   };
@@ -59,7 +60,7 @@ async function inspectCertificate(domain) {
     if (candidates.length) {
       candidates.sort((a, b) => Date.parse(b.not_before || 0) - Date.parse(a.not_before || 0));
       const latest = candidates[0];
-      return resultFrom(latest, latest.issuer?.friendly_name || latest.issuer?.name);
+      return resultFrom(latest, latest.issuer?.friendly_name || latest.issuer?.name, 'certspotter');
     }
   } catch (error) {
     errors.push('Cert Spotter: ' + String(error?.message || 'lookup failed').slice(0, 120));
@@ -84,7 +85,7 @@ async function inspectCertificate(domain) {
     if (candidates.length) {
       candidates.sort((a, b) => Date.parse(b.not_before || 0) - Date.parse(a.not_before || 0));
       const latest = candidates[0];
-      return resultFrom(latest, latest.issuer_name);
+      return resultFrom(latest, latest.issuer_name, 'crt.sh');
     }
     if (errors.length) {
       return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: (errors.join('; ') + '; crt.sh returned no matching records').slice(0, 240), retryable: true };
@@ -195,7 +196,7 @@ async function checkDomain(db, domain, messages) {
   const certificate = await inspectCertificate(domain.domain);
   if (!certificate.retryable) {
     await db.prepare('INSERT INTO dp_ssl_checks (domain_id,status,issuer,not_after,days_remaining,source,details) VALUES (?,?,?,?,?,?,?)')
-      .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,'crt.sh',certificate.details).run();
+      .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,certificate.source || 'certificate-transparency',certificate.details).run();
   }
 
   if (!certificate.retryable && certificate.not_after && certificate.days_remaining !== null) {
@@ -294,7 +295,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/health') {
       const row = await env.DB.prepare('SELECT finished_at,checked_count,failed_count,details FROM dp_monitor_runs ORDER BY id DESC LIMIT 1').first();
-      return Response.json({ ok: true, service: 'DomainPilot Monitor', schedule: '0 * * * *', last_run: row || null });
+      return Response.json({ ok: true, service: 'DomainPilot Monitor', schedule: '0 * * * *', email_configured: !!(env.CF_API_TOKEN && env.CF_ACCOUNT_ID && env.EMAIL_FROM), last_run: row || null });
     }
     return new Response('Not found', { status: 404 });
   }
