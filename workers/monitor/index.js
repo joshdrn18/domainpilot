@@ -48,21 +48,14 @@ async function inspectCertificate(domain) {
 }
 
 async function queueAlert(db, domainId, ownerId, alertKey, alertType, message, messages) {
-  const plan = await db.prepare("SELECT p.custom_alerts FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(ownerId).first();
-  if (!plan?.custom_alerts) return;
+  const title = alertType === 'https_down' ? 'Domain is unreachable'
+    : alertType === 'https_recovered' ? 'Domain recovered'
+    : alertType === 'ssl_expiry' ? 'SSL certificate notice'
+    : 'Domain renewal reminder';
   const result = await db.prepare(
-    "INSERT OR IGNORE INTO dp_alert_events (domain_id,owner_id,alert_key,alert_type,message,delivery_status) VALUES (?,?,?,?,?,'pending')"
-  ).bind(domainId, ownerId, alertKey, alertType, message).run();
-  if (result.meta?.changes) {
-    const title = alertType === 'https_down' ? 'Domain is unreachable'
-      : alertType === 'https_recovered' ? 'Domain recovered'
-      : alertType === 'ssl_expiry' ? 'SSL certificate notice'
-      : 'Domain renewal reminder';
-    await db.prepare(
-      "INSERT OR IGNORE INTO dp_notifications (owner_id,domain_id,alert_key,alert_type,title,message,email_status) VALUES (?,?,?,?,?,?, 'pending')"
-    ).bind(ownerId, domainId, alertKey, alertType, title, message).run();
-    messages.push(message);
-  }
+    "INSERT OR IGNORE INTO dp_notifications (owner_id,domain_id,alert_key,alert_type,title,message,email_status) VALUES (?,?,?,?,?,?, 'pending')"
+  ).bind(ownerId, domainId, alertKey, alertType, title, message).run();
+  if (result.meta?.changes) messages.push(message);
 }
 
 async function deliverPendingEmails(db, env) {
