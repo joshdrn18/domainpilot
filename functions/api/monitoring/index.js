@@ -3,7 +3,7 @@ import { json, getUser } from '../../_lib/auth.js';
 export async function onRequestGet({ request, env }) {
   try {
     const user = await getUser(request, env); if (!user) return json({ error: 'Unauthorized' }, 401);
-    if(user.role!=='admin'){const plan=await env.DB.prepare('SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))').bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
+    if(user.role!=='admin'){const plan=await env.DB.prepare("SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
     const result = await env.DB.prepare(`
       SELECT d.id,d.domain,
         (SELECT c.status FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS status,
