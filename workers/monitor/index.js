@@ -98,7 +98,8 @@ async function deliverPendingEmails(db, env) {
       });
       const payload = await response.json().catch(() => ({}));
       const delivered = payload?.result?.delivered || [];
-      if (response.ok && payload.success === true && delivered.includes(item.email)) {
+      const queued = payload?.result?.queued || [];
+      if (response.ok && payload.success === true && (delivered.includes(item.email) || queued.includes(item.email))) {
         await db.prepare("UPDATE dp_notifications SET email_status='sent',email_sent_at=datetime('now') WHERE id=?").bind(item.id).run();
         sent++;
       } else {
