@@ -6,13 +6,13 @@ export async function onRequestGet({ env }) {
     const result = await env.DB.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'dp_%' ORDER BY name"
     ).all();
-    const required = ['dp_domains', 'dp_activity', 'dp_checks', 'dp_settings', 'dp_users', 'dp_sessions', 'dp_login_attempts', 'dp_plans', 'dp_user_plans', 'dp_ssl_checks', 'dp_alert_events', 'dp_monitor_runs', 'dp_user_alert_settings'];
+    const required = ['dp_domains', 'dp_activity', 'dp_checks', 'dp_settings', 'dp_users', 'dp_sessions', 'dp_login_attempts', 'dp_plans', 'dp_user_plans', 'dp_ssl_checks', 'dp_alert_events', 'dp_monitor_runs', 'dp_user_alert_settings', 'dp_notifications', 'dp_user_notification_settings'];
     const found = new Set((result.results || []).map((row) => row.name));
     const missing = required.filter((name) => !found.has(name));
     return Response.json({
       ok: missing.length === 0,
       service: 'DomainPilot API',
-      version: '0.5.0',
+      version: '0.6.0',
       database: missing.length === 0 ? 'connected' : 'schema_incomplete',
       tables: required.length - missing.length,
       missing
