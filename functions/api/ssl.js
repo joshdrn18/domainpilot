@@ -48,16 +48,23 @@ export async function onRequestPost({ request, env }) {
     const batch = rows.slice(0,limit);
     if (!batch.length) return json({ ok: true, checks: [], next_cursor: null, done: true });
     const checks = [];
+    const skipped = [];
     for (const domain of batch) {
       const result = await inspectCertificate(domain.domain);
+      // A provider outage is not a certificate status; preserve the last good row.
+      if (result.retryable) {
+        skipped.push({ id: domain.id, domain: domain.domain, details: result.details });
+        continue;
+      }
+      const { retryable, ...storedResult } = result;
       await env.DB.prepare('INSERT INTO dp_ssl_checks (domain_id,status,issuer,not_after,days_remaining,source,details) VALUES (?,?,?,?,?,?,?)')
-        .bind(domain.id,result.status,result.issuer,result.not_after,result.days_remaining,result.source,result.details).run();
-      checks.push({ id: domain.id, domain: domain.domain, ...result, checked_at: new Date().toISOString() });
+        .bind(domain.id,storedResult.status,storedResult.issuer,storedResult.not_after,storedResult.days_remaining,storedResult.source,storedResult.details).run();
+      checks.push({ id: domain.id, domain: domain.domain, ...storedResult, checked_at: new Date().toISOString() });
     }
     await env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)')
       .bind('ssl.scan',checks.length+' certificate transparency lookups completed',user.email).run();
     const nextCursor = rows.length > limit ? batch[batch.length - 1].id : null;
-    return json({ ok: true, checks, next_cursor: nextCursor, done: !nextCursor });
+    return json({ ok: true, checks, skipped, next_cursor: nextCursor, done: !nextCursor });
   } catch {
     return json({ error: 'Could not inspect SSL certificates' }, 500);
   }
