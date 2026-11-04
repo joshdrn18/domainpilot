@@ -172,7 +172,7 @@ async function checkDomain(db, domain, messages) {
       await queueAlert(db, domain.id, domain.owner_id,
         'ssl:' + domain.id + ':' + certificate.not_after + ':' + threshold,
         'ssl_expiry',
-        '🔐 DomainPilot SSL notice: ' + domain.domain + ' has a certificate transparency record expiring in ' + certificate.days_remaining + ' day(s) (' + certificate.not_after.slice(0,10) + '). Verify the live certificate with your hosting provider.',
+        '🔐 DomainPilot SSL notice: ' + domain.domain + ' certificate transparency record ' + (certificate.days_remaining < 0 ? 'expired ' + Math.abs(certificate.days_remaining) + ' day(s) ago' : 'expires in ' + certificate.days_remaining + ' day(s)') + ' (' + certificate.not_after.slice(0,10) + '). Verify the live certificate with your hosting provider.',
         messages);
     }
   }
@@ -186,7 +186,7 @@ async function checkDomain(db, domain, messages) {
         await queueAlert(db, domain.id, domain.owner_id,
           'domain-expiry:' + domain.id + ':' + domain.expiry_date + ':' + threshold,
           'domain_expiry',
-          '📅 DomainPilot renewal reminder: ' + domain.domain + ' expires in ' + days + ' day(s) (' + domain.expiry_date + ').',
+          '📅 DomainPilot renewal reminder: ' + domain.domain + ' ' + (days < 0 ? 'expired ' + Math.abs(days) + ' day(s) ago' : 'expires in ' + days + ' day(s)') + ' (' + domain.expiry_date + ').',
           messages);
       }
     }
