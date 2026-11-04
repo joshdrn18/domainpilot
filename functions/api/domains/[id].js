@@ -20,7 +20,11 @@ export async function onRequestDelete({ request, env, params }) {
     const row=await env.DB.prepare("SELECT domain FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(id,user.role,user.id).first();
     if(!row) return json({error:'Domain not found'},404);
     await env.DB.prepare('INSERT INTO dp_activity (domain_id,action,details,actor) VALUES (?,?,?,?)').bind(id,'domain.deleted',row.domain,user.email).run();
-    await env.DB.prepare("DELETE FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(id,user.role,user.id).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM dp_checks WHERE domain_id=?').bind(id),
+      env.DB.prepare('DELETE FROM dp_ssl_checks WHERE domain_id=?').bind(id),
+      env.DB.prepare("DELETE FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(id,user.role,user.id)
+    ]);
     return json({ok:true});
   } catch { return json({error:'Could not delete domain'},500); }
 }
