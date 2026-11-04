@@ -3,11 +3,11 @@ import { json, getUser, randomId } from '../../_lib/auth.js';
 function normalizeDomain(value) {
   let input = String(value || '').trim().toLowerCase();
   if (!input) return '';
-  return input.replace(/^https?:\\/\\//, '').split(/[/?#]/)[0].replace(/\\.$/, '');
+  return input.replace(/^https?:\/\//, '').split(/[/?#]/)[0].replace(/\.$/, '');
 }
 function validDate(value) {
   if (!value) return true;
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(value + 'T00:00:00Z');
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
@@ -33,7 +33,7 @@ export async function onRequestPost({ request, env }) {
       const registrar = String(row.registrar || 'Unknown').trim().slice(0, 80) || 'Unknown';
       const expiry = String(row.expiry_date || row.expires || '').trim();
       const notes = String(row.notes || '').slice(0, 1000);
-      if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/.test(domain)) { errors.push({ row: line, domain, error: 'Invalid domain' }); continue; }
+      if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) { errors.push({ row: line, domain, error: 'Invalid domain' }); continue; }
       if (!validDate(expiry)) { errors.push({ row: line, domain, error: 'Invalid expiry_date; use YYYY-MM-DD' }); continue; }
       if (seen.has(domain)) { errors.push({ row: line, domain, error: 'Duplicate domain' }); continue; }
       if (count + accepted.length >= limit) { errors.push({ row: line, domain, error: 'Plan domain limit reached' }); continue; }
@@ -49,4 +49,4 @@ export async function onRequestPost({ request, env }) {
     }
     return json({ ok: true, imported: accepted.length, errors, limit_reached: errors.some(x => x.error === 'Plan domain limit reached') });
   } catch { return json({ error: 'Could not import CSV rows' }, 500); }
- }
+}
