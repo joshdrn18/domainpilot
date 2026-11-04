@@ -6,7 +6,7 @@ export async function onRequestGet({ request, env }) {
   try {
     const [settings, events] = await Promise.all([
       env.DB.prepare('SELECT email_enabled FROM dp_user_notification_settings WHERE user_id=?').bind(user.id).first(),
-      env.DB.prepare('SELECT id,alert_type,message,delivery_status,created_at,sent_at FROM dp_alert_events WHERE owner_id=? ORDER BY created_at DESC LIMIT 50').bind(user.id).all()
+      env.DB.prepare('SELECT id,alert_type,message,email_status AS delivery_status,created_at,email_sent_at AS sent_at FROM dp_notifications WHERE owner_id=? ORDER BY created_at DESC LIMIT 50').bind(user.id).all()
     ]);
     return json({
       plan: user.role === 'admin' ? 'Admin Unlimited' : 'Account',
