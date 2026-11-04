@@ -64,10 +64,54 @@ async function sendTelegram(env, chatId, text) {
 }
 
 async function queueAlert(db, domainId, ownerId, alertKey, alertType, message, messages) {
+  const plan = await db.prepare("SELECT p.custom_alerts FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(ownerId).first();
+  if (!plan?.custom_alerts) return;
   const result = await db.prepare(
     "INSERT OR IGNORE INTO dp_alert_events (domain_id,owner_id,alert_key,alert_type,message,delivery_status) VALUES (?,?,?,?,?,'pending')"
   ).bind(domainId, ownerId, alertKey, alertType, message).run();
   if (result.meta?.changes) messages.push(message);
+}
+
+async function deliverPendingAlerts(db, env) {
+  const result = await db.prepare(`
+    SELECT e.id,e.owner_id,e.message,a.telegram_chat_id,a.enabled,p.custom_alerts,p.active,up.expires_at
+    FROM dp_alert_events e
+    LEFT JOIN dp_user_alert_settings a ON a.user_id=e.owner_id
+    LEFT JOIN dp_user_plans up ON up.user_id=e.owner_id
+    LEFT JOIN dp_plans p ON p.id=up.plan_id
+    WHERE e.delivery_status IN ('pending','failed')
+    ORDER BY e.created_at
+    LIMIT 50
+  `).all();
+  const groups = new Map();
+  for (const event of result.results || []) {
+    const expired = event.expires_at && event.expires_at < new Date().toISOString().slice(0,10);
+    if (!event.custom_alerts || !event.active || expired || event.enabled === 0) {
+      await db.prepare("UPDATE dp_alert_events SET delivery_status='disabled' WHERE id=?").bind(event.id).run();
+      continue;
+    }
+    if (!event.telegram_chat_id) continue;
+    const chatId = String(event.telegram_chat_id);
+    if (!groups.has(chatId)) groups.set(chatId, []);
+    groups.get(chatId).push(event);
+  }
+
+  let sent = 0, failed = 0;
+  for (const [chatId, events] of groups) {
+    const batch = events.slice(0, 12);
+    const text = 'DomainPilot alerts\\n\\n' + batch.map(event => event.message).join('\\n\\n');
+    const ok = await sendTelegram(env, chatId, text);
+    const ids = batch.map(event => event.id);
+    const placeholders = ids.map(() => '?').join(',');
+    if (ok) {
+      await db.prepare("UPDATE dp_alert_events SET delivery_status='sent',sent_at=datetime('now') WHERE id IN (" + placeholders + ")").bind(...ids).run();
+      sent += ids.length;
+    } else {
+      await db.prepare("UPDATE dp_alert_events SET delivery_status='failed' WHERE id IN (" + placeholders + ")").bind(...ids).run();
+      failed += ids.length;
+    }
+  }
+  return { sent, failed };
 }
 
 async function checkDomain(db, domain, messages) {
@@ -178,29 +222,11 @@ async function runScheduled(env) {
       await db.prepare("INSERT INTO dp_settings (key,value,updated_at) VALUES ('monitor_cursor',?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')").bind(lastId).run();
     }
 
-    const chatId = await setting(db, 'telegram_chat_id', '');
-    const alertsEnabled = (await setting(db, 'telegram_alerts_enabled', '1')) !== '0';
-    const pending = await db.prepare("SELECT id,message FROM dp_alert_events WHERE delivery_status IN ('pending','failed') ORDER BY created_at LIMIT 20").all();
-    const allMessages = (pending.results || []).map(row => row.message).slice(0, 20);
-    if (allMessages.length && alertsEnabled && env.TELEGRAM_BOT_TOKEN && chatId) {
-      const delivered = await sendTelegram(env, chatId, 'DomainPilot automated report\n\n' + allMessages.join('\n\n'));
-      if (delivered) {
-        const ids = (pending.results || []).map(row => row.id);
-        if (ids.length) {
-          const placeholders = ids.map(() => '?').join(',');
-          await db.prepare("UPDATE dp_alert_events SET delivery_status='sent',sent_at=datetime('now') WHERE id IN (" + placeholders + ")").bind(...ids).run();
-        }
-        for (const message of messages) {
-          await db.prepare("UPDATE dp_alert_events SET delivery_status='sent',sent_at=datetime('now') WHERE message=? AND delivery_status='pending'").bind(message).run();
-        }
-      } else {
-        await db.prepare("UPDATE dp_alert_events SET delivery_status='failed' WHERE delivery_status='pending'").run();
-      }
-    }
+    const delivery = env.TELEGRAM_BOT_TOKEN ? await deliverPendingAlerts(db, env) : { sent: 0, failed: 0 };
 
     await db.prepare("UPDATE dp_monitor_runs SET checked_count=?,failed_count=?,details=?,finished_at=datetime('now') WHERE id=?")
-      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; alerts queued ' + messages.length : 'No active domains',runId).run();
-    return { checked, failed, alerts: messages.length };
+      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; alerts queued ' + messages.length + '; delivered ' + delivery.sent : 'No active domains; delivered ' + delivery.sent,runId).run();
+    return { checked, failed, alerts_queued: messages.length, alerts_sent: delivery.sent, alerts_failed: delivery.failed };
   } catch (error) {
     await db.prepare("UPDATE dp_monitor_runs SET details=?,finished_at=datetime('now') WHERE id=?")
       .bind(String(error?.message || 'Scheduled monitor failed').slice(0,500),runId).run();
