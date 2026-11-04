@@ -11,42 +11,90 @@ async function setting(db, key, fallback = '') {
 }
 
 async function inspectCertificate(domain) {
-  if (!validDomain(domain)) return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: 'Invalid hostname' };
-  try {
-    const url = new URL('https://crt.sh/');
-    url.searchParams.set('q', domain);
-    url.searchParams.set('output', 'json');
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'DomainPilot-Certificate-Monitor/1.0' },
-      signal: AbortSignal.timeout(12000)
-    });
-    if (!response.ok) throw new Error('Certificate lookup HTTP ' + response.status);
-    const records = await response.json();
-    if (!Array.isArray(records) || !records.length) {
-      return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: 'No matching certificate transparency record' };
-    }
-    const matches = records.filter(record => {
-      const names = String(record.name_value || record.common_name || '').toLowerCase().split(/[\n,\s]+/).filter(Boolean);
-      return names.some(name => name === domain || name === '*.' + domain);
-    });
-    const candidates = (matches.length ? matches : records).filter(record => record.not_after && !Number.isNaN(Date.parse(record.not_after)));
-    if (!candidates.length) return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: 'No valid expiration date in certificate records' };
-    candidates.sort((a, b) => Date.parse(b.not_before || 0) - Date.parse(a.not_before || 0));
-    const latest = candidates[0];
-    const notAfter = new Date(latest.not_after).toISOString();
+  const hostname = String(domain || '').trim().toLowerCase();
+  if (!validDomain(hostname)) {
+    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: 'Invalid hostname' };
+  }
+  const errors = [];
+  const covers = pattern => {
+    const name = String(pattern || '').toLowerCase().replace(/\.$/, '');
+    if (name === hostname) return true;
+    if (!name.startsWith('*.')) return false;
+    const suffix = name.slice(2);
+    return hostname.endsWith('.' + suffix) &&
+      hostname.split('.').length === suffix.split('.').length + 1;
+  };
+  const resultFrom = (record, issuer) => {
+    const notAfter = new Date(record.not_after).toISOString();
     const days = Math.ceil((Date.parse(notAfter) - Date.now()) / 86400000);
     return {
       status: days < 0 ? 'expired' : days <= 30 ? 'expiring' : 'valid',
-      issuer: String(latest.issuer_name || '').slice(0, 240) || null,
+      issuer: String(issuer || '').slice(0, 240) || null,
       not_after: notAfter,
       days_remaining: days,
       details: 'Latest matching certificate transparency record; not a live TLS handshake'
     };
+  };
+
+  // Primary provider: SSLMate Cert Spotter.
+  try {
+    const url = new URL('https://api.certspotter.com/v1/issuances');
+    url.searchParams.set('domain', hostname);
+    url.searchParams.set('include_subdomains', 'false');
+    url.searchParams.set('match_wildcards', 'true');
+    url.searchParams.append('expand', 'dns_names');
+    url.searchParams.append('expand', 'issuer');
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json', 'User-Agent': 'DomainPilot-Certificate-Monitor/1.0' },
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!response.ok) throw new Error('Cert Spotter HTTP ' + response.status);
+    const records = await response.json();
+    if (!Array.isArray(records)) throw new Error('Cert Spotter returned invalid data');
+    const candidates = records.filter(record =>
+      Array.isArray(record.dns_names) &&
+      record.dns_names.some(covers) &&
+      record.not_after && !Number.isNaN(Date.parse(record.not_after))
+    );
+    if (candidates.length) {
+      candidates.sort((a, b) => Date.parse(b.not_before || 0) - Date.parse(a.not_before || 0));
+      const latest = candidates[0];
+      return resultFrom(latest, latest.issuer?.friendly_name || latest.issuer?.name);
+    }
   } catch (error) {
-    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: String(error?.message || 'Certificate lookup failed').slice(0, 240), retryable: true };
+    errors.push('Cert Spotter: ' + String(error?.message || 'lookup failed').slice(0, 120));
+  }
+
+  // Fallback provider: crt.sh.
+  try {
+    const url = new URL('https://crt.sh/');
+    url.searchParams.set('q', hostname);
+    url.searchParams.set('output', 'json');
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json', 'User-Agent': 'DomainPilot-Certificate-Monitor/1.0' },
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!response.ok) throw new Error('crt.sh HTTP ' + response.status);
+    const records = await response.json();
+    if (!Array.isArray(records)) throw new Error('crt.sh returned invalid data');
+    const candidates = records.filter(record => {
+      const names = String(record.name_value || record.common_name || '').toLowerCase().split(/[\n,\s]+/).filter(Boolean);
+      return names.some(covers) && record.not_after && !Number.isNaN(Date.parse(record.not_after));
+    });
+    if (candidates.length) {
+      candidates.sort((a, b) => Date.parse(b.not_before || 0) - Date.parse(a.not_before || 0));
+      const latest = candidates[0];
+      return resultFrom(latest, latest.issuer_name);
+    }
+    if (errors.length) {
+      return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: (errors.join('; ') + '; crt.sh returned no matching records').slice(0, 240), retryable: true };
+    }
+    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: 'No matching certificate transparency record' };
+  } catch (error) {
+    errors.push('crt.sh: ' + String(error?.message || 'lookup failed').slice(0, 120));
+    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: errors.join('; ').slice(0, 240), retryable: true };
   }
 }
-
 async function queueAlert(db, domainId, ownerId, alertKey, alertType, message, messages) {
   const title = alertType === 'https_down' ? 'Domain is unreachable'
     : alertType === 'https_recovered' ? 'Domain recovered'
