@@ -23,6 +23,7 @@ export async function onRequestDelete({ request, env, params }) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM dp_checks WHERE domain_id=?').bind(id),
       env.DB.prepare('DELETE FROM dp_ssl_checks WHERE domain_id=?').bind(id),
+      env.DB.prepare("UPDATE dp_alert_events SET delivery_status='disabled' WHERE domain_id=? AND delivery_status IN ('pending','failed')").bind(id),
       env.DB.prepare("DELETE FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(id,user.role,user.id)
     ]);
     return json({ok:true});
