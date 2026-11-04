@@ -43,7 +43,7 @@ async function inspectCertificate(domain) {
       details: 'Latest matching certificate transparency record; not a live TLS handshake'
     };
   } catch (error) {
-    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: String(error?.message || 'Certificate lookup failed').slice(0, 240) };
+    return { status: 'unknown', issuer: null, not_after: null, days_remaining: null, details: String(error?.message || 'Certificate lookup failed').slice(0, 240), retryable: true };
   }
 }
 
@@ -145,10 +145,12 @@ async function checkDomain(db, domain, messages) {
 
   const previousCertificate = await db.prepare('SELECT days_remaining,not_after FROM dp_ssl_checks WHERE domain_id=? ORDER BY checked_at DESC,id DESC LIMIT 1').bind(domain.id).first();
   const certificate = await inspectCertificate(domain.domain);
-  await db.prepare('INSERT INTO dp_ssl_checks (domain_id,status,issuer,not_after,days_remaining,source,details) VALUES (?,?,?,?,?,?,?)')
-    .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,'crt.sh',certificate.details).run();
+  if (!certificate.retryable) {
+    await db.prepare('INSERT INTO dp_ssl_checks (domain_id,status,issuer,not_after,days_remaining,source,details) VALUES (?,?,?,?,?,?,?)')
+      .bind(domain.id,certificate.status,certificate.issuer,certificate.not_after,certificate.days_remaining,'crt.sh',certificate.details).run();
+  }
 
-  if (certificate.not_after && certificate.days_remaining !== null) {
+  if (!certificate.retryable && certificate.not_after && certificate.days_remaining !== null) {
     const threshold = ALERT_THRESHOLDS.slice().sort((a,b) => a-b).find(value => certificate.days_remaining <= value);
     const isNewCertificate = previousCertificate?.not_after !== certificate.not_after;
     const crossed = previousCertificate?.days_remaining == null
