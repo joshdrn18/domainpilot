@@ -206,12 +206,21 @@ async function runScheduled(env) {
 
   try {
     const cursor = await setting(db, 'monitor_cursor', '');
-    let result = await db.prepare("SELECT id,domain,expiry_date,owner_id FROM dp_domains WHERE status='active' AND id>? ORDER BY id LIMIT ?")
+    const eligibleDomains = `
+      SELECT d.id,d.domain,d.expiry_date,d.owner_id
+      FROM dp_domains d
+      JOIN dp_users u ON u.id=d.owner_id
+      LEFT JOIN dp_user_plans up ON up.user_id=u.id
+      LEFT JOIN dp_plans p ON p.id=up.plan_id
+      WHERE d.status='active'
+        AND (u.role='admin' OR (p.monitoring_enabled=1 AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))))
+    `;
+    let result = await db.prepare(eligibleDomains + ' AND d.id>? ORDER BY d.id LIMIT ?')
       .bind(cursor, BATCH_SIZE).all();
     let domains = result.results || [];
     if (!domains.length && cursor) {
       await db.prepare("INSERT INTO dp_settings (key,value,updated_at) VALUES ('monitor_cursor','',datetime('now')) ON CONFLICT(key) DO UPDATE SET value='',updated_at=datetime('now')").run();
-      result = await db.prepare("SELECT id,domain,expiry_date,owner_id FROM dp_domains WHERE status='active' ORDER BY id LIMIT ?").bind(BATCH_SIZE).all();
+      result = await db.prepare(eligibleDomains + ' ORDER BY d.id LIMIT ?').bind(BATCH_SIZE).all();
       domains = result.results || [];
     }
 
