@@ -141,7 +141,7 @@ async function checkDomain(db, domain, messages) {
 
 async function runScheduled(env) {
   const db = env.DB;
-  const run = await db.prepare("INSERT INTO dp_monitor_runs (run_type,started_at) VALUES ('scheduled','datetime('now'))").run();
+  const run = await db.prepare("INSERT INTO dp_monitor_runs (run_type,started_at) VALUES ('scheduled',datetime('now'))").run();
   const runId = run.meta?.last_row_id;
   let checked = 0, failed = 0;
   const messages = [];
@@ -176,8 +176,7 @@ async function runScheduled(env) {
     const chatId = await setting(db, 'telegram_chat_id', '');
     const alertsEnabled = (await setting(db, 'telegram_alerts_enabled', '1')) !== '0';
     const pending = await db.prepare("SELECT id,message FROM dp_alert_events WHERE delivery_status IN ('pending','failed') ORDER BY created_at LIMIT 20").all();
-    const retryMessages = (pending.results || []).map(row => row.message);
-    const allMessages = [...messages, ...retryMessages].slice(0, 20);
+    const allMessages = (pending.results || []).map(row => row.message).slice(0, 20);
     if (allMessages.length && alertsEnabled && env.TELEGRAM_BOT_TOKEN && chatId) {
       const delivered = await sendTelegram(env, chatId, 'DomainPilot automated report\n\n' + allMessages.join('\n\n'));
       if (delivered) {
