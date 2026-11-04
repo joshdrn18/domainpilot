@@ -26,13 +26,14 @@ export async function onRequestGet({ request, env }) {
       env.DB.prepare("SELECT key,value,updated_at FROM dp_settings ORDER BY key").all(),
       env.DB.prepare("SELECT s.user_id,u.email,s.created_at,s.expires_at FROM dp_sessions s JOIN dp_users u ON u.id=s.user_id WHERE s.expires_at>datetime('now') ORDER BY s.created_at DESC LIMIT 100").all()
     ]);
-    const [sslStats, alertStats, monitorRun] = await Promise.all([
+    const [sslStats, alertStats, monitorRun, alertEvents] = await Promise.all([
       env.DB.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN status='valid' THEN 1 ELSE 0 END) AS valid,SUM(CASE WHEN status='expiring' THEN 1 ELSE 0 END) AS expiring,SUM(CASE WHEN status='expired' THEN 1 ELSE 0 END) AS expired,MAX(checked_at) AS last_check FROM dp_ssl_checks").first(),
       env.DB.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN delivery_status='sent' THEN 1 ELSE 0 END) AS sent,SUM(CASE WHEN delivery_status IN ('pending','failed') THEN 1 ELSE 0 END) AS pending FROM dp_alert_events").first(),
-      env.DB.prepare("SELECT id,checked_count,failed_count,details,started_at,finished_at FROM dp_monitor_runs ORDER BY id DESC LIMIT 1").first()
+      env.DB.prepare("SELECT id,checked_count,failed_count,details,started_at,finished_at FROM dp_monitor_runs ORDER BY id DESC LIMIT 1").first(),
+      env.DB.prepare("SELECT id,owner_id,alert_type,message,delivery_status,created_at,sent_at FROM dp_alert_events ORDER BY created_at DESC LIMIT 50").all()
     ]);
     const stats = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM dp_users) AS users,(SELECT COUNT(*) FROM dp_domains) AS domains,(SELECT COUNT(*) FROM dp_activity) AS events,(SELECT COUNT(*) FROM dp_sessions WHERE expires_at>datetime('now')) AS active_sessions").first();
-    return json({ stats, users: users.results || [], domains: domains.results || [], plans: plans.results || [], activity: activity.results || [], monitoring: checks || {}, ssl: sslStats || {}, alerts: alertStats || {}, monitor_run: monitorRun || null, settings: settings.results || [], sessions: sessions.results || [] });
+    return json({ stats, users: users.results || [], domains: domains.results || [], plans: plans.results || [], activity: activity.results || [], monitoring: checks || {}, ssl: sslStats || {}, alerts: alertStats || {}, alert_events: alertEvents.results || [], monitor_run: monitorRun || null, settings: settings.results || [], sessions: sessions.results || [] });
   } catch (error) {
     return json({ error: 'Could not load administrator data' }, 500);
   }
