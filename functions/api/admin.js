@@ -115,6 +115,8 @@ export async function onRequestPost({ request, env }) {
         env.DB.prepare('DELETE FROM dp_user_alert_settings WHERE user_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_user_notification_settings WHERE user_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_notifications WHERE owner_id=?').bind(id),
+        env.DB.prepare('DELETE FROM dp_user_notification_settings WHERE user_id=?').bind(id),
+        env.DB.prepare('DELETE FROM dp_notifications WHERE owner_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_alert_events WHERE owner_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_users WHERE id=?').bind(id)
       ]);
