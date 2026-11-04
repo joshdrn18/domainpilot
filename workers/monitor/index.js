@@ -96,8 +96,10 @@ async function deliverPendingAlerts(db, env) {
     groups.get(chatId).push(event);
   }
 
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, groupsSent = 0;
   for (const [chatId, events] of groups) {
+    if (groupsSent >= 15) break;
+    groupsSent++;
     const batch = [];
     let text = 'DomainPilot alerts\\n\\n';
     for (const event of events) {
