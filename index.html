@@ -1,40 +1,72 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#101112" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="description" content="Track domain renewals, monitor HTTPS availability, review SSL certificate records, and manage every domain from one secure workspace." />
-    <meta name="robots" content="noindex, nofollow, noarchive" />
-    <meta name="application-name" content="DomainPilot" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="DomainPilot" />
-    <meta property="og:title" content="DomainPilot — Your domain portfolio, in focus." />
-    <meta property="og:description" content="A focused workspace for managing domains, renewal dates, and domain operations." />
-    <meta property="og:url" content="https://domainpilot.pages.dev/" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="DomainPilot — Domain management, in focus." />
-    <meta name="twitter:description" content="Organize domains and stay ahead of renewals with DomainPilot." />
-    <link rel="canonical" href="https://domainpilot.pages.dev/" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/site.webmanifest" />
-    <title>DomainPilot — Domain management, in focus.</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root">
-      <main aria-label="DomainPilot domain management workspace" style="max-width:960px;margin:12vh auto;padding:32px 24px;font-family:system-ui,sans-serif;color:#e8edf2">
-        <h1>Manage your domain portfolio with confidence</h1>
-        <p>DomainPilot brings domain renewals, HTTPS monitoring, SSL certificate records, and portfolio activity into one secure workspace.</p>
-        <section aria-labelledby="domainpilot-tools">
-          <h2 id="domainpilot-tools">Domain management, monitoring, and renewal tracking</h2>
-          <p>Organize domains, review availability checks, track certificate records, and stay ahead of important renewal dates.</p>
-        </section>
-      </main>
-    </div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0e12" />
+  <meta name="description" content="Manage your domain portfolio in one place. Track renewals, monitor HTTPS uptime, review SSL records, and stay ahead of every domain deadline with DomainPilot." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="application-name" content="DomainPilot" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="DomainPilot" />
+  <meta property="og:title" content="DomainPilot — Your domains, under control." />
+  <meta property="og:description" content="One focused workspace for domain renewals, uptime monitoring, SSL records, and portfolio management." />
+  <meta property="og:url" content="https://domainpilot.pages.dev/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="DomainPilot — Your domains, under control." />
+  <meta name="twitter:description" content="Track renewals, monitor uptime, and keep your domain portfolio in focus." />
+  <link rel="canonical" href="https://domainpilot.pages.dev/" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <title>DomainPilot — Domain portfolio & uptime monitoring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#0b0e12;--panel:#11161d;--line:#202833;--muted:#8793a2;--text:#eef3f8;--cyan:#75d5e7;--blue:#8caeff}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 75% 5%,#142431 0,transparent 38%),var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 48px));margin:auto}.nav{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff0d}.brand{display:flex;align-items:center;gap:11px;font:800 19px Manrope,sans-serif;letter-spacing:-.7px}.mark{width:30px;height:30px;border:1px solid #5bbfd5;border-radius:9px;position:relative;transform:rotate(-8deg);background:linear-gradient(145deg,#17323c,#10171e)}.mark:before,.mark:after{content:"";position:absolute;background:var(--cyan);border-radius:3px}.mark:before{width:14px;height:3px;left:7px;top:9px}.mark:after{width:3px;height:11px;left:7px;top:9px}.navlinks{display:flex;gap:30px;color:#aab5c2;font-size:13px}.navlinks a:hover{color:white}.navright{display:flex;align-items:center;gap:20px;font-size:13px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:1px solid #30434e;background:#17242c;color:#e9fbff;padding:12px 18px;border-radius:9px;font-weight:700;font-size:13px;transition:.2s}.btn:hover{background:#20343e;transform:translateY(-1px)}.btn.primary{background:#b6eaf1;color:#071116;border-color:#b6eaf1}.hero{padding:104px 0 76px;display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center}.eyebrow{font:500 10px 'DM Mono',monospace;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;gap:10px}.eyebrow:before{content:"";width:22px;height:1px;background:var(--cyan)}h1{font:800 clamp(42px,5.5vw,68px)/1.05 Manrope,sans-serif;letter-spacing:-3.4px;margin:22px 0 20px;max-width:650px}h1 span{color:var(--cyan)}.lead{font-size:17px;line-height:1.75;color:#a5b1bf;max-width:520px}.hero-actions{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}.micro{margin-top:24px;color:#748190;font:11px 'DM Mono',monospace}.preview{border:1px solid #293540;background:linear-gradient(145deg,#151d26,#0e1319);border-radius:16px;padding:17px;box-shadow:0 30px 90px #0008;transform:perspective(1100px) rotateY(-5deg) rotateX(2deg)}.preview-top{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 17px;color:#aebbc7;font-size:11px}.dots{display:flex;gap:5px}.dots i{width:6px;height:6px;border-radius:50%;background:#43515e}.live{color:#8bd8b4;font:10px 'DM Mono',monospace}.preview-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:15px;background:#121a22;border:1px solid #26313d;border-radius:9px}.metric small{display:block;color:#8795a4;font-size:10px}.metric b{display:block;font:700 24px Manrope;margin-top:9px}.metric em{font-style:normal;color:#8bd8b4;font:10px 'DM Mono',monospace}.preview-list{margin-top:10px;border:1px solid #26313d;border-radius:9px;padding:14px;background:#121a22}.list-head,.list-row{display:flex;justify-content:space-between;align-items:center}.list-head{font:10px 'DM Mono',monospace;color:#82909e;padding-bottom:12px}.list-row{border-top:1px solid #26313d;padding:12px 0 2px;font-size:11px}.list-row span:last-child{color:#8bd8b4;font:10px 'DM Mono',monospace}.section{padding:76px 0;border-top:1px solid #ffffff0d}.section-head{max-width:610px;margin-bottom:32px}h2{font:700 clamp(27px,3vw,38px)/1.2 Manrope;letter-spacing:-1.3px;margin:15px 0}.section-head p,.feature p{color:#97a4b2;line-height:1.7;font-size:14px}.features{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.feature{background:linear-gradient(145deg,#141b23,#10151b);border:1px solid var(--line);border-radius:12px;padding:23px;min-height:190px}.feature-icon{width:34px;height:34px;border-radius:9px;background:#1c3039;border:1px solid #2a4c58;color:var(--cyan);display:grid;place-items:center;font-size:15px}.feature h3{font:700 16px Manrope;margin:19px 0 7px}.feature p{font-size:13px;margin:0}.cta{display:flex;justify-content:space-between;align-items:center;gap:24px;background:linear-gradient(110deg,#15242c,#111920);border:1px solid #2a3d47;border-radius:15px;padding:34px;margin:10px 0 75px}.cta h2{font-size:25px;margin:0 0 8px}.cta p{margin:0;color:#9eacb8;font-size:13px}.footer{border-top:1px solid #ffffff0d;padding:25px 0 35px;color:#73808d;font-size:11px;display:flex;justify-content:space-between}.footer strong{color:#b8c4ce}
+    @media(max-width:800px){.navlinks{display:none}.hero{grid-template-columns:1fr;padding:75px 0 55px;gap:42px}.preview{transform:none}.features{grid-template-columns:1fr 1fr}.cta{align-items:flex-start;flex-direction:column}}@media(max-width:520px){.wrap{width:min(100% - 32px,1120px)}.nav{height:70px}.navright>a:first-child{display:none}.hero{padding-top:60px}h1{letter-spacing:-2.2px}.lead{font-size:15px}.features{grid-template-columns:1fr}.feature{min-height:0}.section{padding:55px 0}.cta{padding:24px}.footer{gap:12px;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header class="wrap nav">
+    <a class="brand" href="/" aria-label="DomainPilot home"><span class="mark" aria-hidden="true"></span>domainpilot</a>
+    <nav class="navlinks" aria-label="Main navigation"><a href="#features">Features</a><a href="#how-it-works">How it works</a></nav>
+    <div class="navright"><a href="/app.html">Sign in</a><a class="btn primary" href="/app.html">Open workspace ↗</a></div>
+  </header>
+  <main>
+    <section class="wrap hero">
+      <div>
+        <div class="eyebrow">DOMAIN OPERATIONS, SIMPLIFIED</div>
+        <h1>Your domains.<br><span>Under control.</span></h1>
+        <p class="lead">One focused workspace to keep your domain portfolio organized. Track renewal dates, monitor HTTPS availability, review SSL certificate records, and stay ahead of the details.</p>
+        <div class="hero-actions"><a class="btn primary" href="/app.html">Open DomainPilot <span aria-hidden="true">↗</span></a><a class="btn" href="#features">Explore features</a></div>
+        <div class="micro">BUILT FOR CLEARER DOMAIN OPERATIONS</div>
+      </div>
+      <div class="preview" aria-label="Illustrative DomainPilot dashboard preview">
+        <div class="preview-top"><span>PORTFOLIO OVERVIEW</span><span class="live">● SYSTEM READY</span></div>
+        <div class="preview-grid">
+          <div class="metric"><small>Tracked domains</small><b>024</b><em>Portfolio inventory</em></div>
+          <div class="metric"><small>HTTPS availability</small><b>99.9%</b><em>Recent check samples</em></div>
+          <div class="metric"><small>Renewal watch</small><b>03</b><em>Upcoming deadlines</em></div>
+          <div class="metric"><small>SSL records</small><b>021</b><em>Certificate visibility</em></div>
+        </div>
+        <div class="preview-list"><div class="list-head"><span>DOMAIN</span><span>STATUS</span></div><div class="list-row"><span>example.com</span><span>● ONLINE</span></div><div class="list-row"><span>studio.dev</span><span>● ONLINE</span></div><div class="list-row"><span>project.io</span><span>● ONLINE</span></div></div>
+      </div>
+    </section>
+    <section class="section" id="features"><div class="wrap"><div class="section-head"><div class="eyebrow">ONE CLEAR VIEW</div><h2>Everything important, in focus.</h2><p>Reduce scattered spreadsheets and last-minute surprises with a practical view of the domain details that matter.</p></div>
+      <div class="features">
+        <article class="feature"><div class="feature-icon" aria-hidden="true">◷</div><h3>Renewal tracking</h3><p>Keep registrar details and expiration dates together, with a clear view of upcoming renewals.</p></article>
+        <article class="feature"><div class="feature-icon" aria-hidden="true">⌁</div><h3>HTTPS monitoring</h3><p>Review availability checks, response times, and recent uptime history from one workspace.</p></article>
+        <article class="feature"><div class="feature-icon" aria-hidden="true">◇</div><h3>SSL visibility</h3><p>Review certificate records, issuers, expiration dates, and status changes.</p></article>
+        <article class="feature"><div class="feature-icon" aria-hidden="true">▤</div><h3>Portfolio reports</h3><p>Export a consolidated CSV snapshot of domains and their latest health records.</p></article>
+        <article class="feature"><div class="feature-icon" aria-hidden="true">↗</div><h3>Activity history</h3><p>See important workspace changes and keep an audit-friendly activity trail.</p></article>
+        <article class="feature"><div class="feature-icon" aria-hidden="true">⌑</div><h3>Private workspace</h3><p>Keep account data scoped to its owner, with secure sign-in and administrator controls.</p></article>
+      </div>
+    </div></section>
+    <section class="section" id="how-it-works"><div class="wrap"><div class="section-head"><div class="eyebrow">A SIMPLE WORKFLOW</div><h2>From domain list to clear oversight.</h2><p>Add your domains, keep renewal details current, and use monitoring and certificate records to spot issues sooner.</p></div></div></section>
+    <section class="wrap cta"><div><h2>Bring your domain portfolio into focus.</h2><p>Sign in to your private DomainPilot workspace.</p></div><a class="btn primary" href="/app.html">Enter workspace ↗</a></section>
+  </main>
+  <footer class="wrap footer"><span>© 2026 <strong>DomainPilot</strong>. Domain operations, in focus.</span><span>Secure workspace · HTTPS</span></footer>
+</body>
 </html>
