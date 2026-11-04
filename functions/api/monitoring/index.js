@@ -4,15 +4,18 @@ export async function onRequestGet({ request, env }) {
   try {
     const user = await getUser(request, env); if (!user) return json({ error: 'Unauthorized' }, 401);
     if(user.role!=='admin'){const plan=await env.DB.prepare("SELECT p.monitoring_enabled FROM dp_user_plans up JOIN dp_plans p ON p.id=up.plan_id WHERE up.user_id=? AND p.active=1 AND (up.expires_at IS NULL OR up.expires_at>=date('now'))").bind(user.id).first();if(!plan?.monitoring_enabled)return json({error:'Monitoring is not included in your current plan'},403);}
-    const result = await env.DB.prepare(`
-      SELECT d.id,d.domain,
-        (SELECT c.status FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS status,
-        (SELECT c.response_ms FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS response_ms,
-        (SELECT c.checked_at FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS checked_at,
-        (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC LIMIT 1) AS details
-      FROM dp_domains d WHERE (?='admin' OR d.owner_id=?) ORDER BY d.domain
-    `).bind(user.role,user.id).all();
-    return json({ checks: result.results || [] });
+    const [result, automation] = await Promise.all([
+      env.DB.prepare(`
+        SELECT d.id,d.domain,
+          (SELECT c.status FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS status,
+          (SELECT c.response_ms FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS response_ms,
+          (SELECT c.checked_at FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS checked_at,
+          (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS details
+        FROM dp_domains d WHERE (?='admin' OR d.owner_id=?) ORDER BY d.domain
+      `).bind(user.role,user.id).all(),
+      env.DB.prepare("SELECT checked_count,failed_count,details,started_at,finished_at FROM dp_monitor_runs ORDER BY id DESC LIMIT 1").first()
+    ]);
+    return json({ checks: result.results || [], automation: automation || null });
   } catch {
     return json({ error: 'Could not load monitoring data' }, 500);
   }
