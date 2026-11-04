@@ -6,8 +6,8 @@ async function admin(request, env) {
   if (user.role !== 'admin') return { error: json({ error: 'Administrator access required' }, 403) };
   return { user };
 }
-const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-const validDomain = value => /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/.test(value);
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const validDomain = value => /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(value);
 async function audit(env, action, details, actor) {
   await env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)')
     .bind(action, String(details || '').slice(0, 500), actor).run();
@@ -119,7 +119,7 @@ export async function onRequestPost({ request, env }) {
       if (!target || !selected) return json({ error: 'User or active plan not found' }, 404);
       if (target.role === 'admin') return json({ error: 'Admin plan is unlimited and cannot be changed' }, 400);
       const expiry = body.expires_at ? String(body.expires_at).trim() : null;
-      if (expiry && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(expiry) || Number.isNaN(Date.parse(expiry+'T00:00:00Z')))) return json({ error: 'Expiry must be a valid YYYY-MM-DD date' }, 400);
+      if (expiry && (!/^\d{4}-\d{2}-\d{2}$/.test(expiry) || Number.isNaN(Date.parse(expiry+'T00:00:00Z')))) return json({ error: 'Expiry must be a valid YYYY-MM-DD date' }, 400);
       await env.DB.prepare("INSERT INTO dp_user_plans (user_id,plan_id,expires_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET plan_id=excluded.plan_id,expires_at=excluded.expires_at,updated_at=datetime('now')").bind(id,plan,expiry).run();
       await audit(env,'admin.user.plan_changed',target.email+' · '+plan+(expiry?' · until '+expiry:''),actor);
       return json({ ok: true });
@@ -149,7 +149,7 @@ export async function onRequestPost({ request, env }) {
       const status = String(body.status || 'active');
       const notes = String(body.notes || '').slice(0,1000);
       if (!id || !validDomain(domain)) return json({ error: 'Enter a valid domain name' }, 400);
-      if (expiry && !/^\\d{4}-\\d{2}-\\d{2}$/.test(expiry)) return json({ error: 'Invalid expiration date' }, 400);
+      if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json({ error: 'Invalid expiration date' }, 400);
       if (!['active','inactive','expired'].includes(status)) return json({ error: 'Invalid domain status' }, 400);
       const existing = await env.DB.prepare('SELECT id,domain FROM dp_domains WHERE id=?').bind(id).first();
       if (!existing) return json({ error: 'Domain not found' }, 404);
