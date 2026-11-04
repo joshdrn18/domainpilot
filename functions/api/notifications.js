@@ -40,6 +40,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => ({}));
     const emailEnabled = body.email_enabled === false ? 0 : 1;
     await env.DB.prepare("INSERT INTO dp_user_notification_settings (user_id,email_enabled,updated_at) VALUES (?,?,datetime('now')) ON CONFLICT(user_id) DO UPDATE SET email_enabled=excluded.email_enabled,updated_at=datetime('now')").bind(user.id,emailEnabled).run();
+    if (emailEnabled) await env.DB.prepare("UPDATE dp_notifications SET email_status='pending' WHERE owner_id=? AND email_status='disabled'").bind(user.id).run();
     await env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)').bind('notifications.preferences_updated',emailEnabled ? 'Email notifications enabled' : 'Email notifications paused',user.email).run();
     return json({ ok: true, email_enabled: !!emailEnabled, email_configured: !!(env.CF_API_TOKEN && env.CF_ACCOUNT_ID && env.EMAIL_FROM) });
   } catch {
