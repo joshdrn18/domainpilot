@@ -174,6 +174,7 @@ export async function onRequestPost({ request, env }) {
       await env.DB.batch([
         env.DB.prepare('DELETE FROM dp_checks WHERE domain_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_ssl_checks WHERE domain_id=?').bind(id),
+        env.DB.prepare("UPDATE dp_alert_events SET delivery_status='disabled' WHERE domain_id=? AND delivery_status IN ('pending','failed')").bind(id),
         env.DB.prepare('DELETE FROM dp_activity WHERE domain_id=?').bind(id),
         env.DB.prepare('DELETE FROM dp_domains WHERE id=?').bind(id)
       ]);
