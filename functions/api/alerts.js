@@ -21,8 +21,7 @@ export async function onRequestGet({ request, env }) {
       chat_id: chat?.value || '',
       enabled: enabled?.value !== '0',
       events: events.results || [],
-      last_run: run || null,
-      token_configured: false
+      last_run: run || null
     });
   } catch {
     return json({ error: 'Could not load alert settings' }, 500);
