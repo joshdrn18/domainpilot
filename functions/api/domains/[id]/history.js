@@ -10,10 +10,10 @@ export async function onRequestGet({ request, env, params }) {
     ).bind(id,user.role,user.id).first();
     if (!domain) return json({ error: 'Domain not found' }, 404);
 
-    const params = new URL(request.url).searchParams;
-    const requestedLimit = Number.parseInt(params.get('limit') || '50', 10);
+    const searchParams = new URL(request.url).searchParams;
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '50', 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(1000, Math.max(1, requestedLimit)) : 50;
-    const since = params.get('since');
+    const since = searchParams.get('since');
     if (since && (!/^\\d{4}-\\d{2}-\\d{2}T/.test(since) || !Number.isFinite(Date.parse(since)))) {
       return json({ error: 'Invalid history start time' }, 400);
     }
