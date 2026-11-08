@@ -93,3 +93,21 @@
 .monitor-sample-chart>span.trend-down{background:#d17a70;height:100%}
 @media(max-width:900px){.monitor-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.monitor-insight-grid{gap:7px}.monitor-insight{padding:11px}.monitor-insight b{font-size:20px}.monitor-insight small{font-size:8px}.monitor-trend-panel .detail-panel-head{gap:5px}.monitor-sample-chart{height:90px;gap:2px}}
+
+
+/* Outage and recovery history */
+.outage-panel{margin:12px 0}
+.outage-list{display:grid;gap:0}
+.outage-item{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.outage-item:last-child{border-bottom:0}
+.outage-indicator{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#d17a70;margin-top:5px;box-shadow:0 0 0 4px rgba(209,122,112,.12)}
+.outage-indicator i.outage-live{display:block;width:9px;height:9px;border-radius:50%;background:#e5a15f;box-shadow:0 0 0 4px rgba(229,161,95,.15)}
+.outage-main{min-width:0;flex:1;display:grid;gap:4px}
+.outage-main b{font-size:12px;color:#edf0e7}
+.outage-main span{font-size:11px;color:#d7a099}
+.outage-main small{font-size:9px;line-height:1.5;color:#858980;overflow-wrap:anywhere}
+.outage-main .outage-caveat{color:#c39c68}
+.outage-state{font:9px 'DM Mono';letter-spacing:.6px;color:#a6b89c;border:1px solid rgba(127,174,117,.25);border-radius:4px;padding:4px 6px;white-space:nowrap}
+.outage-state.ongoing{color:#e5a15f;border-color:rgba(229,161,95,.3)}
+.outage-footnote{margin:10px 0 0;font-size:9px;line-height:1.6;color:#858980}
+@media(max-width:600px){.outage-item{gap:9px}.outage-state{font-size:8px;padding:4px}.outage-main small{font-size:8px}}
