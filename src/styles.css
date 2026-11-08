@@ -111,3 +111,22 @@
 .outage-state.ongoing{color:#e5a15f;border-color:rgba(229,161,95,.3)}
 .outage-footnote{margin:10px 0 0;font-size:9px;line-height:1.6;color:#858980}
 @media(max-width:600px){.outage-item{gap:9px}.outage-state{font-size:8px;padding:4px}.outage-main small{font-size:8px}}
+
+/* Per-domain uptime reports */
+.uptime-report-panel{margin:12px 0}
+.report-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.report-controls select{min-width:150px;max-width:220px;height:34px;padding:0 9px;border:1px solid #343936;border-radius:6px;background:#101212;color:#dfe2d9;font-size:10px}
+.report-periods{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid #343936;border-radius:7px;background:#101212}
+.report-periods button{border:0;border-radius:4px;background:transparent;color:#969c90;padding:7px 9px;font:9px 'DM Mono';cursor:pointer}
+.report-periods button.active{background:#2b3322;color:#d4eda9}
+.report-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.report-metric-grid>div{min-width:0;display:grid;gap:7px;padding:12px;border:1px solid #292e2c;border-radius:7px;background:#111414}
+.report-metric-grid span{font:9px 'DM Mono';letter-spacing:.6px;color:#858980}
+.report-metric-grid b{font:600 21px Manrope;color:#edf0e7;overflow-wrap:anywhere}
+.report-metric-grid small{font-size:9px;color:#858980;line-height:1.4}
+.report-chart-wrap{padding:10px 0 0}
+.report-chart{height:105px;display:flex;align-items:flex-end;gap:3px;padding:6px 0}
+.report-chart>span{flex:1;min-width:3px;max-width:24px;border-radius:3px 3px 1px 1px;background:#7fae75}
+.report-chart>span.trend-down{background:#d17a70;height:100%}
+@media(max-width:820px){.report-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.detail-panel-head .report-controls{width:100%;justify-content:space-between}.report-controls select{min-width:0;flex:1;max-width:none}.report-periods button{padding:7px}.report-metric-grid{gap:6px}.report-metric-grid>div{padding:10px}.report-metric-grid b{font-size:18px}.report-metric-grid small{font-size:8px}.report-chart{height:85px;gap:2px}}
