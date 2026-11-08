@@ -45,7 +45,7 @@ function App() {
   const sampledUptime=sampledChecks.length?Math.round(successfulSamples.length/sampledChecks.length*1000)/10:null;
   const responseSamples=successfulSamples.map(c=>Number(c.response_ms)).filter(n=>Number.isFinite(n)&&n>=0);
   const averageResponse=responseSamples.length?Math.round(responseSamples.reduce((sum,n)=>sum+n,0)/responseSamples.length):null;
-  const outages=sampledChecks.filter((c,i)=>c.status==='down'&&(i===0||sampledChecks[i-1].domain_id!==c.domain_id||sampledChecks[i-1].status!=='down')).length;
+  const outages=Array.from(new Set(sampledChecks.map(c=>c.domain_id))).reduce((total,id)=>{const rows=sampledChecks.filter(c=>c.domain_id===id).sort((a,b)=>new Date(a.checked_at)-new Date(b.checked_at));return total+rows.filter((c,i)=>c.status==='down'&&(i===0||rows[i-1].status!=='down')).length},0);
   const chartSamples=sampledChecks.slice(-48);
   const maxResponse=Math.max(1,...chartSamples.map(c=>Number(c.response_ms)||0));
   if(!ready)return <div className="auth-screen"><div className="auth-card">Loading DomainPilot…</div></div>
