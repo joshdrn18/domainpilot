@@ -7,9 +7,8 @@ function alertTitle(type) {
 }
 
 async function queueTransitionAlert(env, domain, previousStatus, status, details) {
-  if (status === previousStatus) return false;
   let alertType = null;
-  if (status === 'down' && previousStatus !== 'down') alertType = 'https_down';
+  if (status === 'down' && previousStatus === 'down') alertType = 'https_down';
   if (status === 'up' && previousStatus === 'down') alertType = 'https_recovered';
   if (!alertType) return false;
 
