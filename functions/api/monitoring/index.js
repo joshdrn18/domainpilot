@@ -36,7 +36,9 @@ export async function onRequestGet({ request, env }) {
           (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS details
         FROM dp_domains d WHERE (?='admin' OR d.owner_id=?) ORDER BY d.domain
       `).bind(user.role,user.id).all(),
-      env.DB.prepare("SELECT checked_count,failed_count,details,started_at,finished_at FROM dp_monitor_runs ORDER BY id DESC LIMIT 1").first()
+      user.role === 'admin'
+        ? env.DB.prepare("SELECT checked_count,failed_count,details,started_at,finished_at FROM dp_monitor_runs ORDER BY id DESC LIMIT 1").first()
+        : Promise.resolve(null)
     ]);
     return json({ checks: result.results || [], automation: automation || null });
   } catch {
