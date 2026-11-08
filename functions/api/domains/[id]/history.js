@@ -18,7 +18,7 @@ export async function onRequestGet({ request, env, params }) {
       return json({ error: 'Invalid history start time' }, 400);
     }
     const checksQuery = since
-      ? env.DB.prepare("SELECT id,check_type,status,response_ms,details,checked_at FROM dp_checks WHERE domain_id=? AND checked_at>=? ORDER BY checked_at DESC,id DESC LIMIT ?").bind(id,since,limit+1)
+      ? env.DB.prepare("SELECT id,check_type,status,response_ms,details,checked_at FROM dp_checks WHERE domain_id=? AND datetime(checked_at)>=datetime(?) ORDER BY checked_at DESC,id DESC LIMIT ?").bind(id,since,limit+1)
       : env.DB.prepare("SELECT id,check_type,status,response_ms,details,checked_at FROM dp_checks WHERE domain_id=? ORDER BY checked_at DESC,id DESC LIMIT ?").bind(id,limit+1);
     const [checks, certificates, activity] = await Promise.all([
       checksQuery.all(),
