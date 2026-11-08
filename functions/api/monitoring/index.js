@@ -69,27 +69,43 @@ export async function onRequestPost({ request, env }) {
     runId = run.meta?.last_row_id;
     const alertsQueued = [];
     const checks = await Promise.all(domains.map(async (domain) => {
-      const previous = await env.DB.prepare("SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 1").bind(domain.id).first();
+      const history = await env.DB.prepare("SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 2").bind(domain.id).all();
+      const previous = history.results?.[0] || null;
+      const beforePrevious = history.results?.[1] || null;
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
       try {
         if (/\.(localhost|local|internal|test|invalid|example)$/i.test(domain.domain)) throw new Error('Reserved hostname cannot be checked');
-        const response = await fetch('https://' + domain.domain, {
-          method: 'HEAD',
-          redirect: 'manual',
+        let response = await fetch('https://' + domain.domain, {
+          method: 'HEAD', redirect: 'manual',
           signal: AbortSignal.timeout(8000),
           headers: { 'User-Agent': 'DomainPilot-Monitor/1.0' }
         });
+        if (response.status === 405 || response.status === 501) {
+          try { await response.body?.cancel(); } catch {}
+          response = await fetch('https://' + domain.domain, {
+            method: 'GET', redirect: 'manual',
+            signal: AbortSignal.timeout(8000),
+            headers: { 'User-Agent': 'DomainPilot-Monitor/1.0', 'Range': 'bytes=0-0' }
+          });
+          try { await response.body?.cancel(); } catch {}
+          details = 'HEAD unsupported; GET fallback returned HTTP ' + response.status;
+        } else {
+          try { await response.body?.cancel(); } catch {}
+          details = 'HTTPS responded with HTTP ' + response.status;
+        }
         responseMs = Date.now() - started;
         status = response.status < 500 ? 'up' : 'down';
-        details = 'HTTPS responded with HTTP ' + response.status;
       } catch (error) {
         responseMs = Date.now() - started;
         details = String(error?.message || 'HTTPS connection failed').slice(0, 240);
       }
       await env.DB.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
         .bind(domain.id, 'https', status, responseMs, details).run();
-      if (await queueTransitionAlert(env, domain, previous?.status || null, status, details)) alertsQueued.push(domain.domain);
+      const confirmedDown = status === 'down' && previous?.status === 'down' && beforePrevious?.status !== 'down';
+      const transitionFromDown = status === 'up' && previous?.status === 'down';
+      if ((confirmedDown || transitionFromDown) &&
+          await queueTransitionAlert(env, domain, previous?.status || null, status, details)) alertsQueued.push(domain.domain);
       return { id: domain.id, domain: domain.domain, status, response_ms: responseMs, checked_at: new Date().toISOString(), details };
     }));
 
