@@ -6,7 +6,7 @@ import './styles.css'
 function App() {
   const [user,setUser]=useState(null), [ready,setReady]=useState(false), [busy,setBusy]=useState(false)
   const [auth,setAuth]=useState({email:'',password:''}), [activity,setActivity]=useState([]), [checks,setChecks]=useState([]), [checking,setChecking]=useState(false)
-  const [domains,setDomains]=useState([]), [query,setQuery]=useState(''), [modal,setModal]=useState(false), [csvBusy,setCsvBusy]=useState(false), [toast,setToast]=useState(''), [adminData,setAdminData]=useState(null), [adminTab,setAdminTab]=useState('users'), [adminBusy,setAdminBusy]=useState(false), [newUser,setNewUser]=useState({email:'',password:'',plan:'free'}), [certificates,setCertificates]=useState([]), [sslBusy,setSslBusy]=useState(false), [sslCursor,setSslCursor]=useState(''), [alertData,setAlertData]=useState(null), [alertBusy,setAlertBusy]=useState(false), [notificationData,setNotificationData]=useState(null), [monitorRun,setMonitorRun]=useState(null), [monitorHistory,setMonitorHistory]=useState([]), [overviewData,setOverviewData]=useState(null), [overviewBusy,setOverviewBusy]=useState(false)
+  const [domains,setDomains]=useState([]), [query,setQuery]=useState(''), [modal,setModal]=useState(false), [csvBusy,setCsvBusy]=useState(false), [toast,setToast]=useState(''), [adminData,setAdminData]=useState(null), [adminTab,setAdminTab]=useState('users'), [adminBusy,setAdminBusy]=useState(false), [newUser,setNewUser]=useState({email:'',password:'',plan:'free'}), [certificates,setCertificates]=useState([]), [sslBusy,setSslBusy]=useState(false), [sslCursor,setSslCursor]=useState(''), [alertData,setAlertData]=useState(null), [alertBusy,setAlertBusy]=useState(false), [notificationData,setNotificationData]=useState(null), [monitorRun,setMonitorRun]=useState(null), [monitorHistory,setMonitorHistory]=useState([]), [reportDomainId,setReportDomainId]=useState(''), [reportPeriod,setReportPeriod]=useState('7d'), [overviewData,setOverviewData]=useState(null), [overviewBusy,setOverviewBusy]=useState(false)
   const [form,setForm]=useState({domain:'',registrar:'Cloudflare Registrar',expiry_date:''}), [page,setPage]=useState('overview'), [editing,setEditing]=useState(null), [sidebarOpen,setSidebarOpen]=useState(false), [selectedDomain,setSelectedDomain]=useState(null), [domainDetail,setDomainDetail]=useState(null), [detailBusy,setDetailBusy]=useState(false)
   const notify=(m)=>{setToast(m);setTimeout(()=>setToast(''),3000)}
   const load=async()=>{const r=await fetch('/api/domains');if(r.status===401){setUser(null);return}const d=await r.json();if(!r.ok)throw Error(d.error||'Could not load domains');setDomains(d.domains||[])}
@@ -26,7 +26,7 @@ function App() {
     setMonitorRun(d.automation||null);
     const histories=await Promise.all(latest.map(async domain=>{
       try{
-        const response=await fetch('/api/domains/'+encodeURIComponent(domain.id)+'/history');
+        const since=new Date(Date.now()-30*86400000).toISOString();const response=await fetch('/api/domains/'+encodeURIComponent(domain.id)+'/history?since='+encodeURIComponent(since)+'&limit=1000');
         if(!response.ok)return [];
         const data=await response.json();
         return (data.checks||[]).filter(check=>check.check_type==='https').map(check=>({...check,domain:domain.domain,domain_id:domain.id}));
