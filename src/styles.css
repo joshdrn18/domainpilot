@@ -130,3 +130,7 @@
 .report-chart>span.trend-down{background:#d17a70;height:100%}
 @media(max-width:820px){.report-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.detail-panel-head .report-controls{width:100%;justify-content:space-between}.report-controls select{min-width:0;flex:1;max-width:none}.report-periods button{padding:7px}.report-metric-grid{gap:6px}.report-metric-grid>div{padding:10px}.report-metric-grid b{font-size:18px}.report-metric-grid small{font-size:8px}.report-chart{height:85px;gap:2px}}
+
+.report-export{height:32px;padding:0 10px;border:1px solid #46523a;border-radius:6px;background:#1d2519;color:#cfe5ae;font:9px 'DM Mono';cursor:pointer}
+.report-export:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:600px){.report-export{height:30px;padding:0 8px}}
