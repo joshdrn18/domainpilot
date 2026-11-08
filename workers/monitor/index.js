@@ -157,9 +157,11 @@ async function deliverPendingEmails(db, env) {
 }
 
 async function checkDomain(db, domain, messages) {
-  const previous = await db.prepare(
-    "SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 1"
-  ).bind(domain.id).first();
+  const history = await db.prepare(
+    "SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 2"
+  ).bind(domain.id).all();
+  const previous = history.results?.[0] || null;
+  const beforePrevious = history.results?.[1] || null;
 
   let status = 'down', details = 'HTTPS request failed', responseMs = null;
   const started = Date.now();
@@ -167,15 +169,26 @@ async function checkDomain(db, domain, messages) {
     if (!validDomain(domain.domain) || /\.(localhost|local|internal|test|invalid|example)$/i.test(domain.domain)) {
       throw new Error('Reserved or invalid hostname');
     }
-    const response = await fetch('https://' + domain.domain, {
-      method: 'HEAD',
-      redirect: 'manual',
+    let response = await fetch('https://' + domain.domain, {
+      method: 'HEAD', redirect: 'manual',
       headers: { 'User-Agent': 'DomainPilot-Monitor/1.0' },
       signal: AbortSignal.timeout(8000)
     });
+    if (response.status === 405 || response.status === 501) {
+      try { await response.body?.cancel(); } catch {}
+      response = await fetch('https://' + domain.domain, {
+        method: 'GET', redirect: 'manual',
+        headers: { 'User-Agent': 'DomainPilot-Monitor/1.0', 'Range': 'bytes=0-0' },
+        signal: AbortSignal.timeout(8000)
+      });
+      try { await response.body?.cancel(); } catch {}
+      details = 'HEAD unsupported; GET fallback returned HTTP ' + response.status;
+    } else {
+      try { await response.body?.cancel(); } catch {}
+      details = 'HTTPS responded with HTTP ' + response.status;
+    }
     responseMs = Date.now() - started;
     status = response.status < 500 ? 'up' : 'down';
-    details = 'HTTPS responded with HTTP ' + response.status;
   } catch (error) {
     responseMs = Date.now() - started;
     details = String(error?.message || 'HTTPS connection failed').slice(0, 240);
@@ -184,7 +197,7 @@ async function checkDomain(db, domain, messages) {
   await db.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
     .bind(domain.id, 'https', status, responseMs, details).run();
 
-  if (status === 'down' && previous?.status !== 'down') {
+  if (status === 'down' && previous?.status === 'down' && beforePrevious?.status !== 'down') {
     await queueAlert(db, domain.id, domain.owner_id, 'https:' + domain.id + ':down:' + new Date().toISOString().slice(0, 13), 'https_down',
       '🔴 DomainPilot: ' + domain.domain + ' is unreachable. ' + details, messages);
   } else if (status === 'up' && previous?.status === 'down') {
