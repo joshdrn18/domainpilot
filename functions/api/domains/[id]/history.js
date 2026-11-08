@@ -14,7 +14,7 @@ export async function onRequestGet({ request, env, params }) {
     const requestedLimit = Number.parseInt(searchParams.get('limit') || '50', 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(1000, Math.max(1, requestedLimit)) : 50;
     const since = searchParams.get('since');
-    if (since && (!/^\\d{4}-\\d{2}-\\d{2}T/.test(since) || !Number.isFinite(Date.parse(since)))) {
+    if (since && (!/^\d{4}-\d{2}-\d{2}T/.test(since) || !Number.isFinite(Date.parse(since)))) {
       return json({ error: 'Invalid history start time' }, 400);
     }
     const checksQuery = since
