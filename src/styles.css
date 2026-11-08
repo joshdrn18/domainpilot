@@ -79,3 +79,17 @@
 .trend-legend .trend-up{background:#7fae75}
 .trend-legend .trend-down{background:#d17a70}
 .trend-legend small{margin-left:auto;color:#73796f}
+
+
+/* Monitoring insights */
+.monitor-insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0 12px}
+.monitor-insight{min-width:0;border:1px solid var(--line);background:#151718;border-radius:9px;padding:15px;display:grid;gap:8px}
+.monitor-insight span{font:9px 'DM Mono';letter-spacing:.8px;color:#858980}
+.monitor-insight b{font:600 24px Manrope;color:#edf0e7;overflow-wrap:anywhere}
+.monitor-insight small{font-size:9px;line-height:1.5;color:#858980}
+.monitor-trend-panel{margin:12px 0}
+.monitor-sample-chart{height:112px;display:flex;align-items:flex-end;gap:3px;padding:8px 0 2px}
+.monitor-sample-chart>span{flex:1;min-width:3px;max-width:22px;border-radius:3px 3px 1px 1px;background:#7fae75;opacity:.9}
+.monitor-sample-chart>span.trend-down{background:#d17a70;height:100%}
+@media(max-width:900px){.monitor-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.monitor-insight-grid{gap:7px}.monitor-insight{padding:11px}.monitor-insight b{font-size:20px}.monitor-insight small{font-size:8px}.monitor-trend-panel .detail-panel-head{gap:5px}.monitor-sample-chart{height:90px;gap:2px}}
