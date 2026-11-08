@@ -1,5 +1,28 @@
 import { json, getUser } from '../../_lib/auth.js';
 
+function alertTitle(type) {
+  if (type === 'https_down') return 'Domain is unreachable';
+  if (type === 'https_recovered') return 'Domain recovered';
+  return 'Monitoring notice';
+}
+
+async function queueTransitionAlert(env, domain, previousStatus, status, details) {
+  if (status === previousStatus) return false;
+  let alertType = null;
+  if (status === 'down' && previousStatus !== 'down') alertType = 'https_down';
+  if (status === 'up' && previousStatus === 'down') alertType = 'https_recovered';
+  if (!alertType) return false;
+
+  const hour = new Date().toISOString().slice(0, 13);
+  const message = alertType === 'https_down'
+    ? '🔴 DomainPilot: ' + domain.domain + ' is unreachable. ' + details
+    : '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + details;
+  const result = await env.DB.prepare(
+    "INSERT OR IGNORE INTO dp_notifications (owner_id,domain_id,alert_key,alert_type,title,message,email_status) VALUES (?,?,?,?,?,?, 'pending')"
+  ).bind(domain.owner_id, domain.id, 'https:' + domain.id + ':' + (alertType === 'https_down' ? 'down:' : 'recovered:') + hour, alertType, alertTitle(alertType), message).run();
+  return !!result.meta?.changes;
+}
+
 export async function onRequestGet({ request, env }) {
   try {
     const user = await getUser(request, env); if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -22,6 +45,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
+  let runId = null;
   try {
     const user = await getUser(request, env);
     if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -29,15 +53,21 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => ({}));
     let domains;
     if (body.domainId) {
-      const row = await env.DB.prepare("SELECT id,domain FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(String(body.domainId),user.role,user.id).first();
+      const row = await env.DB.prepare("SELECT id,domain,owner_id FROM dp_domains WHERE id=? AND (?='admin' OR owner_id=?)").bind(String(body.domainId),user.role,user.id).first();
       if (!row) return json({ error: 'Domain not found' }, 404);
       domains = [row];
     } else {
-      const result = await env.DB.prepare("SELECT id,domain FROM dp_domains WHERE (?='admin' OR owner_id=?) ORDER BY domain LIMIT 20") .bind(user.role,user.id).all();
+      const result = await env.DB.prepare("SELECT id,domain,owner_id FROM dp_domains WHERE (?='admin' OR owner_id=?) ORDER BY domain LIMIT 20").bind(user.role,user.id).all();
       domains = result.results || [];
     }
     if (!domains.length) return json({ error: 'Add a domain before running checks' }, 400);
+
+    const startedAt = new Date().toISOString();
+    const run = await env.DB.prepare("INSERT INTO dp_monitor_runs (run_type,checked_count,failed_count,details,started_at) VALUES ('manual',0,0,'Manual check in progress',datetime('now'))").run();
+    runId = run.meta?.last_row_id;
+    const alertsQueued = [];
     const checks = await Promise.all(domains.map(async (domain) => {
+      const previous = await env.DB.prepare("SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 1").bind(domain.id).first();
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
       try {
@@ -57,12 +87,20 @@ export async function onRequestPost({ request, env }) {
       }
       await env.DB.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
         .bind(domain.id, 'https', status, responseMs, details).run();
+      if (await queueTransitionAlert(env, domain, previous?.status || null, status, details)) alertsQueued.push(domain.domain);
       return { id: domain.id, domain: domain.domain, status, response_ms: responseMs, checked_at: new Date().toISOString(), details };
     }));
+
+    const failed = checks.filter(check => check.status !== 'up').length;
+    await env.DB.prepare("UPDATE dp_monitor_runs SET checked_count=?,failed_count=?,details=?,finished_at=datetime('now') WHERE id=?")
+      .bind(checks.length,failed,'Manual check; alerts queued ' + alertsQueued.length,runId).run();
     await env.DB.prepare('INSERT INTO dp_activity (action,details,actor) VALUES (?,?,?)')
-      .bind('monitoring.run', checks.length + ' HTTPS checks completed', user.email).run();
-    return json({ ok: true, checks });
+      .bind('monitoring.run', checks.length + ' manual HTTPS checks completed; ' + failed + ' failed', user.email).run();
+    return json({ ok: true, checks, run: { id: runId, checked_count: checks.length, failed_count: failed, alerts_queued: alertsQueued.length, started_at: startedAt, finished_at: new Date().toISOString() } });
   } catch {
+    if (runId) {
+      try { await env.DB.prepare("UPDATE dp_monitor_runs SET details='Manual monitoring run failed',finished_at=datetime('now') WHERE id=?").bind(runId).run(); } catch {}
+    }
     return json({ error: 'Could not complete monitoring checks' }, 500);
   }
 }
