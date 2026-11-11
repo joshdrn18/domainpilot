@@ -158,10 +158,15 @@ async function deliverPendingEmails(db, env) {
 
 async function checkDomain(db, domain, messages) {
   const history = await db.prepare(
-    "SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 2"
+    "SELECT status,checked_at FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 10"
   ).bind(domain.id).all();
   const previous = history.results?.[0] || null;
-  const beforePrevious = history.results?.[1] || null;
+  const downHistory = [];
+  for (const item of history.results || []) { if (item.status !== 'down') break; downHistory.push(item); }
+  const thresholdRow = await db.prepare('SELECT value FROM dp_settings WHERE key=?').bind('monitor_failure_threshold:' + domain.id).first();
+  const parsedThreshold = Number(thresholdRow?.value);
+  const failureThreshold = Number.isInteger(parsedThreshold) && parsedThreshold >= 2 && parsedThreshold <= 10 ? parsedThreshold : 2;
+  const recoverySummary = downHistory.length ? downHistory.length + ' consecutive failed check(s); outage sampled from ' + downHistory[downHistory.length - 1].checked_at : 'service is back online';
 
   let status = 'down', details = 'HTTPS request failed', responseMs = null;
   const started = Date.now();
@@ -197,12 +202,14 @@ async function checkDomain(db, domain, messages) {
   await db.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
     .bind(domain.id, 'https', status, responseMs, details).run();
 
-  if (status === 'down' && previous?.status === 'down' && beforePrevious?.status !== 'down') {
+  const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
+  const crossedThreshold = status === 'down' && downStreak >= failureThreshold && downHistory.length < failureThreshold;
+  if (crossedThreshold) {
     await queueAlert(db, domain.id, domain.owner_id, 'https:' + domain.id + ':down:' + new Date().toISOString().slice(0, 13), 'https_down',
-      '🔴 DomainPilot: ' + domain.domain + ' is unreachable. ' + details, messages);
+      '🔴 DomainPilot: ' + domain.domain + ' is unreachable after ' + downStreak + ' consecutive failed checks (threshold ' + failureThreshold + '). Latest check: ' + details, messages);
   } else if (status === 'up' && previous?.status === 'down') {
     await queueAlert(db, domain.id, domain.owner_id, 'https:' + domain.id + ':recovered:' + new Date().toISOString().slice(0, 13), 'https_recovered',
-      '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + details, messages);
+      '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + recoverySummary + '. ' + details, messages);
   }
 
   const previousCertificate = await db.prepare('SELECT days_remaining,not_after FROM dp_ssl_checks WHERE domain_id=? ORDER BY checked_at DESC,id DESC LIMIT 1').bind(domain.id).first();
