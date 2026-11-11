@@ -205,7 +205,7 @@ async function checkDomain(db, domain, messages) {
   const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
   const incidentStartedAt = downHistory.length ? downHistory[downHistory.length - 1].checked_at : null;
   const priorIncidentAlert = status === 'down' && downStreak >= failureThreshold && incidentStartedAt
-    ? await db.prepare("SELECT id FROM dp_notifications WHERE domain_id=? AND alert_type='https_down' AND created_at>=? LIMIT 1").bind(domain.id, incidentStartedAt).first()
+    ? await db.prepare("SELECT id FROM dp_notifications WHERE domain_id=? AND alert_type='https_down' AND datetime(created_at)>=datetime(?) LIMIT 1").bind(domain.id, incidentStartedAt).first()
     : null;
   const thresholdReached = status === 'down' && downStreak >= failureThreshold && !priorIncidentAlert;
   if (thresholdReached) {
