@@ -134,3 +134,5 @@
 .report-export{height:32px;padding:0 10px;border:1px solid #46523a;border-radius:6px;background:#1d2519;color:#cfe5ae;font:9px 'DM Mono';cursor:pointer}
 .report-export:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:600px){.report-export{height:30px;padding:0 8px}}
+
+.threshold-control{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px!important;white-space:normal!important;max-width:none!important;overflow:visible!important}.threshold-control select{width:auto;max-width:150px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:#151718;color:var(--text);font:10px 'DM Mono';cursor:pointer}.threshold-control select:focus{outline:1px solid var(--accent);outline-offset:1px}
