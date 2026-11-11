@@ -108,9 +108,13 @@ export async function onRequestPost({ request, env }) {
       await env.DB.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
         .bind(domain.id, 'https', status, responseMs, details).run();
       const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
-      const crossedThreshold = status === 'down' && downStreak >= threshold && downHistory.length < threshold;
+      const incidentStartedAt = downHistory.length ? downHistory[downHistory.length - 1].checked_at : null;
+      const priorIncidentAlert = status === 'down' && downStreak >= threshold && incidentStartedAt
+        ? await env.DB.prepare("SELECT id FROM dp_notifications WHERE domain_id=? AND alert_type='https_down' AND created_at>=? LIMIT 1").bind(domain.id, incidentStartedAt).first()
+        : null;
+      const thresholdReached = status === 'down' && downStreak >= threshold && !priorIncidentAlert;
       const transitionFromDown = status === 'up' && previous?.status === 'down';
-      if ((crossedThreshold || transitionFromDown) &&
+      if ((thresholdReached || transitionFromDown) &&
           await queueTransitionAlert(env, domain, status, details, status === 'down' ? downStreak + ' consecutive failed checks (threshold ' + threshold + ')' : recoverySummary)) alertsQueued.push(domain.domain);
       return { id: domain.id, domain: domain.domain, status, response_ms: responseMs, checked_at: new Date().toISOString(), details };
     }));
