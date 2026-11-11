@@ -76,8 +76,6 @@ export async function onRequestPost({ request, env }) {
       const thresholdRow = await env.DB.prepare("SELECT value FROM dp_settings WHERE key=?").bind('monitor_failure_threshold:' + domain.id).first();
       const parsedThreshold = Number(thresholdRow?.value);
       const threshold = Number.isInteger(parsedThreshold) && parsedThreshold >= 2 && parsedThreshold <= 10 ? parsedThreshold : 2;
-      const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
-      const crossedThreshold = status === 'down' && downStreak >= threshold && downHistory.length < threshold;
       const recoverySummary = downHistory.length ? downHistory.length + ' consecutive failed check(s); outage sampled from ' + downHistory[downHistory.length - 1].checked_at : 'service is back online';
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
@@ -109,6 +107,8 @@ export async function onRequestPost({ request, env }) {
       }
       await env.DB.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
         .bind(domain.id, 'https', status, responseMs, details).run();
+      const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
+      const crossedThreshold = status === 'down' && downStreak >= threshold && downHistory.length < threshold;
       const transitionFromDown = status === 'up' && previous?.status === 'down';
       if ((crossedThreshold || transitionFromDown) &&
           await queueTransitionAlert(env, domain, status, details, status === 'down' ? downStreak + ' consecutive failed checks (threshold ' + threshold + ')' : recoverySummary)) alertsQueued.push(domain.domain);
