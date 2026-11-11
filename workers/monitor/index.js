@@ -203,8 +203,12 @@ async function checkDomain(db, domain, messages) {
     .bind(domain.id, 'https', status, responseMs, details).run();
 
   const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
-  const crossedThreshold = status === 'down' && downStreak >= failureThreshold && downHistory.length < failureThreshold;
-  if (crossedThreshold) {
+  const incidentStartedAt = downHistory.length ? downHistory[downHistory.length - 1].checked_at : null;
+  const priorIncidentAlert = status === 'down' && downStreak >= failureThreshold && incidentStartedAt
+    ? await db.prepare("SELECT id FROM dp_notifications WHERE domain_id=? AND alert_type='https_down' AND created_at>=? LIMIT 1").bind(domain.id, incidentStartedAt).first()
+    : null;
+  const thresholdReached = status === 'down' && downStreak >= failureThreshold && !priorIncidentAlert;
+  if (thresholdReached) {
     await queueAlert(db, domain.id, domain.owner_id, 'https:' + domain.id + ':down:' + new Date().toISOString().slice(0, 13), 'https_down',
       '🔴 DomainPilot: ' + domain.domain + ' is unreachable after ' + downStreak + ' consecutive failed checks (threshold ' + failureThreshold + '). Latest check: ' + details, messages);
   } else if (status === 'up' && previous?.status === 'down') {
@@ -295,11 +299,9 @@ async function runScheduled(env) {
       await db.prepare("INSERT INTO dp_settings (key,value,updated_at) VALUES ('monitor_cursor',?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')").bind(lastId).run();
     }
 
-    const delivery = await deliverPendingEmails(db, env);
-
     await db.prepare("UPDATE dp_monitor_runs SET checked_count=?,failed_count=?,details=?,finished_at=datetime('now') WHERE id=?")
-      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; alerts queued ' + messages.length + '; emails sent ' + delivery.sent : 'No active domains; emails sent ' + delivery.sent,runId).run();
-    return { checked, failed, alerts_queued: messages.length, alerts_sent: delivery.sent, alerts_failed: delivery.failed };
+      .bind(checked,failed,domains.length ? 'Batch ' + domains.length + ' domains; in-app alerts queued ' + messages.length : 'No active domains',runId).run();
+    return { checked, failed, alerts_queued: messages.length, alerts_sent: 0, alerts_failed: 0 };
   } catch (error) {
     await db.prepare("UPDATE dp_monitor_runs SET details=?,finished_at=datetime('now') WHERE id=?")
       .bind(String(error?.message || 'Scheduled monitor failed').slice(0,500),runId).run();
