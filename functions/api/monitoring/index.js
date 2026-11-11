@@ -6,16 +6,16 @@ function alertTitle(type) {
   return 'Monitoring notice';
 }
 
-async function queueTransitionAlert(env, domain, previousStatus, status, details) {
+async function queueTransitionAlert(env, domain, status, details, incidentSummary = '') {
   let alertType = null;
-  if (status === 'down' && previousStatus === 'down') alertType = 'https_down';
-  if (status === 'up' && previousStatus === 'down') alertType = 'https_recovered';
+  if (status === 'down') alertType = 'https_down';
+  if (status === 'up') alertType = 'https_recovered';
   if (!alertType) return false;
 
   const hour = new Date().toISOString().slice(0, 13);
   const message = alertType === 'https_down'
-    ? '🔴 DomainPilot: ' + domain.domain + ' is unreachable. ' + details
-    : '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + details;
+    ? '🔴 DomainPilot: ' + domain.domain + ' is unreachable after ' + incidentSummary + '. Latest check: ' + details
+    : '🟢 DomainPilot: ' + domain.domain + ' has recovered. ' + incidentSummary + '. ' + details;
   const result = await env.DB.prepare(
     "INSERT OR IGNORE INTO dp_notifications (owner_id,domain_id,alert_key,alert_type,title,message,email_status) VALUES (?,?,?,?,?,?, 'pending')"
   ).bind(domain.owner_id, domain.id, 'https:' + domain.id + ':' + (alertType === 'https_down' ? 'down:' : 'recovered:') + hour, alertType, alertTitle(alertType), message).run();
@@ -32,7 +32,8 @@ export async function onRequestGet({ request, env }) {
           (SELECT c.status FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS status,
           (SELECT c.response_ms FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS response_ms,
           (SELECT c.checked_at FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS checked_at,
-          (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS details
+          (SELECT c.details FROM dp_checks c WHERE c.domain_id=d.id AND c.check_type='https' ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) AS details,
+          COALESCE((SELECT CAST(s.value AS INTEGER) FROM dp_settings s WHERE s.key='monitor_failure_threshold:' || d.id),2) AS failure_threshold
         FROM dp_domains d WHERE (?='admin' OR d.owner_id=?) ORDER BY d.domain
       `).bind(user.role,user.id).all(),
       user.role === 'admin'
@@ -68,9 +69,16 @@ export async function onRequestPost({ request, env }) {
     runId = run.meta?.last_row_id;
     const alertsQueued = [];
     const checks = await Promise.all(domains.map(async (domain) => {
-      const history = await env.DB.prepare("SELECT status FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 2").bind(domain.id).all();
+      const history = await env.DB.prepare("SELECT status,checked_at FROM dp_checks WHERE domain_id=? AND check_type='https' ORDER BY checked_at DESC,id DESC LIMIT 10").bind(domain.id).all();
       const previous = history.results?.[0] || null;
-      const beforePrevious = history.results?.[1] || null;
+      const downHistory = [];
+      for (const item of history.results || []) { if (item.status !== 'down') break; downHistory.push(item); }
+      const thresholdRow = await env.DB.prepare("SELECT value FROM dp_settings WHERE key=?").bind('monitor_failure_threshold:' + domain.id).first();
+      const parsedThreshold = Number(thresholdRow?.value);
+      const threshold = Number.isInteger(parsedThreshold) && parsedThreshold >= 2 && parsedThreshold <= 10 ? parsedThreshold : 2;
+      const downStreak = status === 'down' ? downHistory.length + 1 : downHistory.length;
+      const crossedThreshold = status === 'down' && downStreak >= threshold && downHistory.length < threshold;
+      const recoverySummary = downHistory.length ? downHistory.length + ' consecutive failed check(s); outage sampled from ' + downHistory[downHistory.length - 1].checked_at : 'service is back online';
       const started = Date.now();
       let status = 'down', details = 'HTTPS request failed', responseMs = null;
       try {
@@ -101,10 +109,9 @@ export async function onRequestPost({ request, env }) {
       }
       await env.DB.prepare('INSERT INTO dp_checks (domain_id,check_type,status,response_ms,details) VALUES (?,?,?,?,?)')
         .bind(domain.id, 'https', status, responseMs, details).run();
-      const confirmedDown = status === 'down' && previous?.status === 'down' && beforePrevious?.status !== 'down';
       const transitionFromDown = status === 'up' && previous?.status === 'down';
-      if ((confirmedDown || transitionFromDown) &&
-          await queueTransitionAlert(env, domain, previous?.status || null, status, details)) alertsQueued.push(domain.domain);
+      if ((crossedThreshold || transitionFromDown) &&
+          await queueTransitionAlert(env, domain, status, details, status === 'down' ? downStreak + ' consecutive failed checks (threshold ' + threshold + ')' : recoverySummary)) alertsQueued.push(domain.domain);
       return { id: domain.id, domain: domain.domain, status, response_ms: responseMs, checked_at: new Date().toISOString(), details };
     }));
 
